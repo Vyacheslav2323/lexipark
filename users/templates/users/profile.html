@@ -1,0 +1,87 @@
+{% extends 'users/base.html' %}
+
+{% block title %}My Profile - {{ user.username }}{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-12 col-lg-10">
+        <div class="card shadow">
+            <div class="card-header bg-primary text-white">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h4 class="mb-0">
+                        <i class="fas fa-user me-2"></i>{{ user.username }}'s Vocabulary
+                    </h4>
+                    <span class="badge bg-light text-dark">
+                        <i class="fas fa-book me-1"></i>{{ total_words }} words
+                    </span>
+                </div>
+            </div>
+            <div class="card-body p-4">
+                {% if vocabularies %}
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead class="table-light">
+                                <tr>
+                                    <th scope="col">
+                                        <i class="fas fa-language me-1"></i>Korean Word
+                                    </th>
+                                    <th scope="col">
+                                        <i class="fas fa-tag me-1"></i>Part of Speech
+                                    </th>
+                                    <th scope="col">
+                                        <i class="fas fa-translate me-1"></i>English Translation
+                                    </th>
+                                    <th scope="col">
+                                        <i class="fas fa-calendar me-1"></i>Added
+                                    </th>
+                                    <th scope="col">
+                                        <i class="fas fa-clock me-1"></i>Last Reviewed
+                                    </th>
+                                    <th scope="col">
+                                        <i class="fas fa-percent me-1"></i>Retention
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for vocab in vocabularies %}
+                                <tr>
+                                    <td>
+                                        <span class="fw-bold text-primary">{{ vocab.korean_word }}</span>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-secondary">{{ vocab.get_pos_display }}</span>
+                                    </td>
+                                    <td>{{ vocab.english_translation }}</td>
+                                    <td>
+                                        <small class="text-muted">
+                                            {{ vocab.created_at|date:"M d, Y" }}
+                                        </small>
+                                    </td>
+                                    <td>
+                                        <small class="text-muted">
+                                            {{ vocab.last_reviewed|date:"M d, Y" }}
+                                        </small>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-success">{{ vocab.get_retention_rate }}</span>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="text-center py-5">
+                        <i class="fas fa-book-open fa-3x text-muted mb-3"></i>
+                        <h5 class="text-muted">No vocabulary words yet</h5>
+                        <p class="text-muted">Start analyzing Korean text and click on words to build your vocabulary!</p>
+                        <a href="{% url 'home' %}" class="btn btn-primary">
+                            <i class="fas fa-search me-2"></i>Go to Analysis
+                        </a>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

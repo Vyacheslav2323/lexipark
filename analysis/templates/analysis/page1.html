@@ -1,0 +1,89 @@
+{% load static %}
+<html>
+<head>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+  <link href="{% static 'analysis/css/interactive.css' %}" rel="stylesheet">
+</head>
+<body>
+  <nav class="navbar navbar-expand-lg navbar-light bg-light shadow-sm">
+    <div class="container">
+      <a class="navbar-brand fw-bold" href="{% url 'home' %}">
+        <i class="fas fa-home me-2"></i>Jorp
+      </a>
+                  <div class="navbar-nav ms-auto">
+                <a class="nav-link" href="{% url 'users:profile' %}">
+                    <i class="fas fa-book me-1"></i>My Vocabulary
+                </a>
+                {% if user.is_authenticated %}
+                  <span class="navbar-text me-3">
+                    <i class="fas fa-user me-1"></i>Welcome, {{ user.username }}!
+                  </span>
+                  <a class="nav-link text-danger" href="{% url 'users:logout' %}">
+                    <i class="fas fa-sign-out-alt me-1"></i>Logout
+                  </a>
+                {% else %}
+                  <a class="nav-link" href="{% url 'users:login' %}">
+                    <i class="fas fa-sign-in-alt me-1"></i>Login
+                  </a>
+                  <a class="nav-link" href="{% url 'users:register' %}">
+                    <i class="fas fa-user-plus me-1"></i>Register
+                  </a>
+                {% endif %}
+              </div>
+    </div>
+  </nav>
+  <div class="container mt-5">
+    <div class="row justify-content-center">
+      <div class="col-md-10 col-lg-8">
+        <div class="card shadow">
+          <div class="card-header bg-primary text-white text-center">
+            <h4 class="mb-0"><i class="fas fa-search me-2"></i>Text Analysis</h4>
+          </div>
+          <div class="card-body p-4">
+            <form method="post">
+              {% csrf_token %}
+              <div class="mb-3">
+                <label for="textinput" class="form-label">
+                  <i class="fas fa-edit me-1"></i>Enter text to analyze
+                </label>
+                <input type="text" name="textinput" id="textinput" class="form-control" placeholder="Type your text here...">
+              </div>
+              <div class="d-grid">
+                <button type="submit" class="btn btn-primary">
+                  <i class="fas fa-search me-2"></i>Analyze
+                </button>
+              </div>
+            </form>
+            
+            {% if interactive_html %}
+              <div class="mt-4">
+                <label class="form-label">
+                  <i class="fas fa-list me-1"></i>Interactive Analysis Results
+                </label>
+                <div class="border rounded p-3 bg-light">
+                  <p class="mb-0" style="font-size: 18px; line-height: 1.6;">
+                    {{ interactive_html|safe }}
+                  </p>
+                </div>
+                <small class="text-muted mt-2 d-block">
+                  <i class="fas fa-info-circle me-1"></i>Hover over Korean words to see translations
+                </small>
+                <form method="post" action="" id="know-rest-form">
+                  {% csrf_token %}
+                  <input type="hidden" name="know_rest" value="1">
+                  <input type="hidden" name="textinput" value="{{ request.POST.textinput }}">
+                  <button type="submit" class="btn btn-success mt-3 w-100">I know the rest</button>
+                </form>
+              </div>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="{% static 'analysis/js/interactive.js' %}"></script>
+</body>
+</html> 
