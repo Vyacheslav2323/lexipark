@@ -18,7 +18,8 @@ def analyze_view(request):
     interactive_html = None
     vocab_words = set()
     
-    if request.method == 'POST':
+    try:
+        if request.method == 'POST':
         if request.POST.get('know_rest') == '1':
             text = request.POST.get('textinput', '')
             results = analyze_sentence(text)
@@ -78,6 +79,11 @@ def analyze_view(request):
         'interactive_html': interactive_html
     }
     return render(request, 'analysis/page1.html', context)
+    except Exception as e:
+        print(f"Error in analyze_view: {e}")
+        # Return a simple error page or redirect
+        from django.http import HttpResponse
+        return HttpResponse(f"An error occurred: {str(e)}", status=500)
 
 @login_required
 @csrf_exempt
