@@ -1,5 +1,5 @@
 from django.shortcuts import render
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.decorators import login_required
 import json
@@ -8,6 +8,9 @@ from vocab.models import Vocabulary
 from vocab.bayesian_recall import update_vocabulary_recall
 
 # Create your views here.
+
+def health_check(request):
+    return HttpResponse("OK", content_type="text/plain")
 
 def analyze_view(request):
     results = None
