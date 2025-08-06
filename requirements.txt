@@ -1,0 +1,7 @@
+Django==5.2.4
+django-crispy-forms==2.1
+crispy-bootstrap5==0.7
+mecab-python3==1.0.6
+requests==2.31.0
+python-dotenv==1.0.0
+Pillow==10.1.0
