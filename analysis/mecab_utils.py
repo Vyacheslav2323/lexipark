@@ -7,6 +7,7 @@ import re
 try:
     from MeCab import Tagger
     MECAB_AVAILABLE = True
+    print("MeCab successfully imported!")
 except ImportError:
     MECAB_AVAILABLE = False
     print("Warning: MeCab not available. Korean text analysis will be limited.")
