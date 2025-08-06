@@ -10,7 +10,14 @@ from vocab.bayesian_recall import update_vocabulary_recall
 # Create your views here.
 
 def health_check(request):
-    return HttpResponse("OK", content_type="text/plain")
+    try:
+        # Test database connection
+        from django.db import connection
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT 1")
+        return HttpResponse("OK", content_type="text/plain")
+    except Exception as e:
+        return HttpResponse(f"Database Error: {str(e)}", content_type="text/plain", status=500)
 
 def analyze_view(request):
     results = None
