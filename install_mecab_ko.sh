@@ -1,32 +1,21 @@
 #!/bin/bash
 
-# Install MeCab Korean from source
-echo "Installing MeCab Korean..."
+# Install MeCab with Korean support
+echo "Installing MeCab with Korean support..."
 
 # Install dependencies
 apt-get update
 apt-get install -y build-essential curl
 
-# Download and install MeCab Korean
-cd /tmp
-curl -L -O https://bitbucket.org/eunjeon/mecab-ko/downloads/mecab-ko-1.2.0.tar.gz
-tar -xzf mecab-ko-1.2.0.tar.gz
-cd mecab-ko-1.2.0
-./configure
-make
-make install
+# Install basic MeCab
+apt-get install -y mecab mecab-utils mecab-ipadic-utf8
 
-# Download and install MeCab Korean dictionary
-cd /tmp
-curl -L -O https://bitbucket.org/eunjeon/mecab-ko-dic/downloads/mecab-ko-dic-2.1.1-20180720.tar.gz
-tar -xzf mecab-ko-dic-2.1.1-20180720.tar.gz
-cd mecab-ko-dic-2.1.1-20180720
-./configure
-make
-make install
+# Test MeCab installation
+echo "Testing MeCab installation..."
+mecab --version
 
-# Update library path
-echo "/usr/local/lib" > /etc/ld.so.conf.d/mecab.conf
-ldconfig
+# Test with Korean text
+echo "Testing Korean text analysis..."
+echo "안녕하세요" | mecab
 
-echo "MeCab Korean installation completed!" 
+echo "MeCab installation completed!" 
