@@ -1,4 +1,16 @@
+let recallInteractions = [];
+let recallBatchTimeout = null;
+let hoveredWords = new Set();
+let displayedVocabWords = new Set();
+let isAnalysisFinished = false;
+
 document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.interactive-word[data-original]').forEach(function(word) {
+        const original = word.getAttribute('data-original');
+        if (word.classList.contains('in-vocab') || word.style.backgroundColor) {
+            displayedVocabWords.add(original);
+        }
+    });
     document.querySelectorAll('.interactive-word').forEach(function(word) {
         let hoverStartTime = null;
         const original = word.getAttribute('data-original');
@@ -13,6 +25,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 const hoverDuration = Date.now() - hoverStartTime;
                 console.log(`Hover ended on: ${original}, duration: ${hoverDuration}ms`);
                 trackHoverDuration(original, hoverDuration);
+                
+                hoveredWords.add(original);
+                
+                if (word.classList.contains('in-vocab') || word.style.backgroundColor) {
+                    const hadLookup = hoverDuration > 1000;
+                    addRecallInteraction(original, hadLookup);
+                }
+                
                 hoverStartTime = null;
             }
         });
@@ -30,10 +50,43 @@ document.addEventListener('DOMContentLoaded', function() {
             
             if (isInVocab) {
                 showNotification('Word is already in your vocabulary!', 'info');
+                hoveredWords.add(original);
+                addRecallInteraction(original, true);
             } else {
                 saveToVocabulary(original, pos, grammar, translation);
             }
         });
+    });
+
+    const finishAnalysisForm = document.getElementById('finish-analysis-form');
+    if (finishAnalysisForm) {
+        finishAnalysisForm.addEventListener('submit', function(e) {
+            finishAnalysis();
+        });
+    }
+    
+    window.addEventListener('beforeunload', function(e) {
+        if (displayedVocabWords.size > 0 && !isAnalysisFinished) {
+            finishAnalysis();
+            e.preventDefault();
+            e.returnValue = 'Finish analysis?';
+            return 'Finish analysis?';
+        }
+    });
+    
+    document.addEventListener('visibilitychange', function() {
+        if (document.visibilityState === 'hidden' && displayedVocabWords.size > 0 && !isAnalysisFinished) {
+            finishAnalysis();
+        }
+    });
+    
+    document.addEventListener('click', function(e) {
+        const link = e.target.closest('a');
+        if (link && link.href && !link.href.startsWith('#') && displayedVocabWords.size > 0 && !isAnalysisFinished) {
+            if (confirm('Finish analysis before leaving?')) {
+                finishAnalysis();
+            }
+        }
     });
 
     document.querySelectorAll('.sentence-punctuation').forEach(function(punctuation) {
@@ -190,6 +243,78 @@ function saveToVocabulary(koreanWord, pos, grammarInfo, translation) {
         console.error('Network error:', error);
         showNotification('Network error while saving word', 'error');
     });
+}
+
+function addRecallInteraction(koreanWord, hadLookup) {
+    recallInteractions.push([koreanWord, hadLookup]);
+    
+    if (recallBatchTimeout) {
+        clearTimeout(recallBatchTimeout);
+    }
+    
+    recallBatchTimeout = setTimeout(sendBatchRecallUpdates, 2000);
+}
+
+function sendBatchRecallUpdates() {
+    if (recallInteractions.length === 0) return;
+    
+    const interactions = [...recallInteractions];
+    recallInteractions = [];
+    
+    fetch('/analysis/batch-update-recalls/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest',
+        },
+        body: JSON.stringify({
+            interactions: interactions
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            console.log(`Batch updated ${data.updated_count} recall rates`);
+        } else {
+            console.error('Error in batch recall update:', data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Network error in batch recall update:', error);
+    });
+}
+
+function finishAnalysis() {
+    if (isAnalysisFinished) return;
+    
+    const nonHoveredWords = Array.from(displayedVocabWords).filter(word => !hoveredWords.has(word));
+    if (nonHoveredWords.length > 0) {
+        const successInteractions = nonHoveredWords.map(word => [word, false]);
+        recallInteractions.push(...successInteractions);
+        
+        fetch('/analysis/batch-update-recalls/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+            },
+            body: JSON.stringify({
+                interactions: successInteractions
+            }),
+            keepalive: true
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                console.log(`Finished analysis: recorded ${nonHoveredWords.length} successful recalls for non-hovered words:`, nonHoveredWords);
+            }
+        })
+        .catch(error => {
+            console.error('Error finishing analysis:', error);
+        });
+    }
+    
+    isAnalysisFinished = true;
 }
 
 function showNotification(message, type) {

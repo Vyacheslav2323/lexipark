@@ -63,7 +63,7 @@
                                         </small>
                                     </td>
                                     <td>
-                                        <span class="badge bg-success">{{ vocab.get_retention_rate }}</span>
+                                        <span class="badge bg-success">{{ vocab.get_retention_rate|floatformat:2 }}</span>
                                     </td>
                                 </tr>
                                 {% endfor %}

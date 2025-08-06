@@ -7,6 +7,7 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 from vocab.models import Vocabulary
+from vocab.bayesian_recall import update_vocabulary_recall
 from .forms import CustomUserCreationForm
 
 # Create your views here.
@@ -72,7 +73,10 @@ def save_vocabulary_view(request):
                 defaults={
                     'pos': pos,
                     'grammar_info': grammar_info or '',
-                    'english_translation': translation
+                    'english_translation': translation,
+                    'alpha_prior': 1.0,
+                    'beta_prior': 9.0,
+                    'retention_rate': 0.1
                 }
             )
             
@@ -81,11 +85,15 @@ def save_vocabulary_view(request):
                 vocab.grammar_info = grammar_info or ''
                 vocab.english_translation = translation
                 vocab.save()
+            else:
+                vocab = update_vocabulary_recall(vocab, had_lookup=True)
+                vocab.save()
             
             return JsonResponse({
                 'success': True,
                 'message': 'Vocabulary saved successfully',
-                'created': created
+                'created': created,
+                'retention_rate': vocab.retention_rate
             })
         else:
             return JsonResponse({

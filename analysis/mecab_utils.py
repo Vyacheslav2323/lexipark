@@ -73,6 +73,7 @@ def translate_results(results):
 def get_google_translation(word):
     try:
         from vocab.models import GlobalTranslation
+        from alternative_translators import translate_with_alternative
         
         cached_translation = GlobalTranslation.objects.filter(korean_word=word).first()
         if cached_translation:
@@ -80,29 +81,16 @@ def get_google_translation(word):
             cached_translation.save()
             return cached_translation.english_translation
         
-        url = "https://translate.googleapis.com/translate_a/single"
-        params = {
-            'client': 'gtx',
-            'sl': 'ko',
-            'tl': 'en',
-            'dt': 't',
-            'q': word
-        }
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36'
-        }
-        
-        response = requests.get(url, params=params, headers=headers, timeout=10)
-        if response.status_code == 200:
-            data = response.json()
-            if data and len(data) > 0 and len(data[0]) > 0:
-                translation = data[0][0][0]
+        translation = translate_with_alternative(word, "papago")
+        if translation != word:
+            try:
                 GlobalTranslation.objects.create(
                     korean_word=word,
                     english_translation=translation
                 )
-                return translation
-        return word
+            except Exception as db_error:
+                print(f"Translation error for '{word}': {db_error}")
+        return translation
     except Exception as e:
         print(f"Translation error for '{word}': {e}")
         return word
@@ -180,7 +168,7 @@ def split_text_into_sentences(text):
 def get_sentence_translation(sentence):
     try:
         from vocab.models import GlobalTranslation
-        import urllib.parse
+        from alternative_translators import translate_with_alternative
         
         cached_translation = GlobalTranslation.objects.filter(korean_word=sentence).first()
         if cached_translation:
@@ -188,29 +176,16 @@ def get_sentence_translation(sentence):
             cached_translation.save()
             return cached_translation.english_translation
         
-        url = "https://translate.googleapis.com/translate_a/single"
-        params = {
-            'client': 'gtx',
-            'sl': 'ko',
-            'tl': 'en',
-            'dt': 't',
-            'q': sentence
-        }
-        headers = {
-            'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36'
-        }
-        
-        response = requests.get(url, params=params, headers=headers, timeout=10)
-        if response.status_code == 200:
-            data = response.json()
-            if data and len(data) > 0 and len(data[0]) > 0:
-                translation = data[0][0][0]
+        translation = translate_with_alternative(sentence, "papago")
+        if translation != sentence:
+            try:
                 GlobalTranslation.objects.create(
                     korean_word=sentence,
                     english_translation=translation
                 )
-                return translation
-        return sentence
+            except Exception as db_error:
+                print(f"Translation error for sentence '{sentence}': {db_error}")
+        return translation
     except Exception as e:
         print(f"Translation error for sentence '{sentence}': {e}")
         return sentence

@@ -34,6 +34,11 @@ class Vocabulary(models.Model):
     last_reviewed = models.DateTimeField(auto_now=True)
     grammars = models.ManyToManyField(Grammar, blank=True, related_name='vocabularies')
     retention_rate = models.FloatField(default=0.1)
+    last_recall_update = models.DateTimeField(auto_now_add=True)
+    recall_failures = models.FloatField(default=0.0)
+    recall_successes = models.FloatField(default=0.0)
+    alpha_prior = models.FloatField(default=1.0)
+    beta_prior = models.FloatField(default=1.0)
     
     class Meta:
         unique_together = ['user', 'korean_word']
