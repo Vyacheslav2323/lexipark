@@ -1,1 +1,1 @@
-web: gunicorn jorp.wsgi:application 
+web: ./start.sh 
