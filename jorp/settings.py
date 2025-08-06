@@ -141,9 +141,12 @@ USE_TZ = True
 
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
-STATICFILES_DIRS = [
-    BASE_DIR / "static",
-]
+
+# Only add static directory if it exists
+static_dirs = []
+if (BASE_DIR / "static").exists():
+    static_dirs.append(BASE_DIR / "static")
+STATICFILES_DIRS = static_dirs
 
 # Add whitenoise for static file serving
 MIDDLEWARE.insert(1, 'whitenoise.middleware.WhiteNoiseMiddleware')

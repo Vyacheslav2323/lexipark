@@ -1,10 +1,23 @@
 # -*- coding: utf-8 -*-
-from MeCab import Tagger
 import requests
 import json
 import re
 
+# Try to import MeCab, but make it optional for deployment
+try:
+    from MeCab import Tagger
+    MECAB_AVAILABLE = True
+except ImportError:
+    MECAB_AVAILABLE = False
+    print("Warning: MeCab not available. Korean text analysis will be limited.")
+
 def tokenize(text):
+    if not MECAB_AVAILABLE:
+        # Simple fallback: split by spaces and punctuation
+        import re
+        tokens = re.findall(r'[\w가-힣]+|[^\w\s]', text)
+        return [token for token in tokens if token.strip()]
+    
     tagger = Tagger()
     parsed = tagger.parse(text)
     if parsed is None:
@@ -36,6 +49,18 @@ def analyze_token(surface, pos, features):
     return pos
 
 def analyze_sentence(sentence):
+    if not MECAB_AVAILABLE:
+        # Simple fallback: treat each word as a noun
+        import re
+        words = re.findall(r'[\w가-힣]+', sentence)
+        results = []
+        for word in words:
+            if any('\uAC00' <= char <= '\uD7A3' for char in word):  # Korean characters
+                results.append((word, word, 'NNG', ''))
+            else:
+                results.append((word, word, 'UNK', ''))
+        return results
+    
     tagger = Tagger()
     parsed = tagger.parse(sentence)
     results = []
