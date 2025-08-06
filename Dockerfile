@@ -1,12 +1,18 @@
 FROM python:3.11-slim
 
-# Install system dependencies including MeCab
+# Install system dependencies
 RUN apt-get update && apt-get install -y \
     mecab \
-    mecab-ko \
-    mecab-ko-dic \
     mecab-utils \
+    swig \
+    build-essential \
+    wget \
+    curl \
     && rm -rf /var/lib/apt/lists/*
+
+# Copy and run our Korean MeCab installation script
+COPY install_mecab_ko.sh /tmp/
+RUN chmod +x /tmp/install_mecab_ko.sh && /tmp/install_mecab_ko.sh
 
 # Set working directory
 WORKDIR /app
