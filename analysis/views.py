@@ -20,70 +20,75 @@ def analyze_view(request):
     
     try:
         if request.method == 'POST':
-        if request.POST.get('know_rest') == '1':
-            text = request.POST.get('textinput', '')
-            results = analyze_sentence(text)
-            translations = translate_results(results)
-            words = [r[1] for r in results if r[1] is not None and any('\uAC00' <= char <= '\uD7A3' for char in str(r[1]))]
-            user_vocab = set(Vocabulary.objects.filter(user=request.user).values_list('korean_word', flat=True))
-            new_words = [w for w in words if w not in user_vocab]
-            existing_vocab_words = [w for w in words if w in user_vocab]
-            
-            word_data = {}
-            for i, (surface, base, pos, grammar_info) in enumerate(results):
-                if base is not None and any('\uAC00' <= char <= '\uD7A3' for char in str(base)):
-                    word_data[base] = {
-                        'pos': pos,
-                        'grammar_info': grammar_info,
-                        'translation': translations[i] if i < len(translations) else base
-                    }
-            
-            for w in new_words:
-                data = word_data.get(w, {'pos': '', 'grammar_info': '', 'translation': w})
-                Vocabulary.objects.get_or_create(
-                    user=request.user,
-                    korean_word=w,
-                    defaults={
-                        'pos': data['pos'],
-                        'grammar_info': data['grammar_info'],
-                        'english_translation': data['translation'],
-                        'hover_count': 0,
-                        'total_hover_time': 0.0,
-                        'last_5_durations': '[]',
-                        'retention_rate': 0.91,
-                        'recall_failures': 0.0,
-                        'recall_successes': 0.0,
-                        'alpha_prior': 10.0,
-                        'beta_prior': 0.0
-                    }
-                )
-            
-            if request.user.is_authenticated and existing_vocab_words:
-                from vocab.bayesian_recall import batch_update_recalls
-                success_interactions = [(word, False) for word in existing_vocab_words]
-                batch_update_recalls(request.user, success_interactions)
-            
-            vocab_words = set(Vocabulary.objects.filter(user=request.user).values_list('korean_word', flat=True))
-            interactive_html = create_interactive_text_with_sentences(text, vocab_words)
-        else:
-            text = request.POST.get('textinput', '')
-            if text.strip():
-                if request.user.is_authenticated:
-                    vocab_words = set(Vocabulary.objects.filter(user=request.user).values_list('korean_word', flat=True))
+            if request.POST.get('know_rest') == '1':
+                text = request.POST.get('textinput', '')
+                results = analyze_sentence(text)
+                translations = translate_results(results)
+                words = [r[1] for r in results if r[1] is not None and any('\uAC00' <= char <= '\uD7A3' for char in str(r[1]))]
+                user_vocab = set(Vocabulary.objects.filter(user=request.user).values_list('korean_word', flat=True))
+                new_words = [w for w in words if w not in user_vocab]
+                existing_vocab_words = [w for w in words if w in user_vocab]
                 
+                word_data = {}
+                for i, (surface, base, pos, grammar_info) in enumerate(results):
+                    if base is not None and any('\uAC00' <= char <= '\uD7A3' for char in str(base)):
+                        word_data[base] = {
+                            'pos': pos,
+                            'grammar_info': grammar_info,
+                            'translation': translations[i] if i < len(translations) else base
+                        }
+                
+                for w in new_words:
+                    data = word_data.get(w, {'pos': '', 'grammar_info': '', 'translation': w})
+                    Vocabulary.objects.get_or_create(
+                        user=request.user,
+                        korean_word=w,
+                        defaults={
+                            'pos': data['pos'],
+                            'grammar_info': data['grammar_info'],
+                            'english_translation': data['translation'],
+                            'hover_count': 0,
+                            'total_hover_time': 0.0,
+                            'last_5_durations': '[]',
+                            'retention_rate': 0.91,
+                            'recall_failures': 0.0,
+                            'recall_successes': 0.0,
+                            'alpha_prior': 10.0,
+                            'beta_prior': 0.0
+                        }
+                    )
+                
+                if request.user.is_authenticated and existing_vocab_words:
+                    from vocab.bayesian_recall import batch_update_recalls
+                    success_interactions = [(word, False) for word in existing_vocab_words]
+                    batch_update_recalls(request.user, success_interactions)
+                
+                vocab_words = set(Vocabulary.objects.filter(user=request.user).values_list('korean_word', flat=True))
                 interactive_html = create_interactive_text_with_sentences(text, vocab_words)
-    
-    context = {
-        'results': results,
-        'translations': translations,
-        'interactive_html': interactive_html
-    }
-    return render(request, 'analysis/page1.html', context)
+            else:
+                text = request.POST.get('textinput', '')
+                if text.strip():
+                    if request.user.is_authenticated:
+                        vocab_words = set(Vocabulary.objects.filter(user=request.user).values_list('korean_word', flat=True))
+                    
+                    interactive_html = create_interactive_text_with_sentences(text, vocab_words)
+        
+        context = {
+            'results': results,
+            'translations': translations,
+            'interactive_html': interactive_html
+        }
+        return render(request, 'analysis/page1.html', context)
     except Exception as e:
         print(f"Error in analyze_view: {e}")
-        # Return a simple error page or redirect
-        from django.http import HttpResponse
-        return HttpResponse(f"An error occurred: {str(e)}", status=500)
+        import traceback
+        traceback.print_exc()
+        context = {
+            'results': None,
+            'translations': None,
+            'interactive_html': f'<p class="text-danger">Error: {str(e)}</p>'
+        }
+        return render(request, 'analysis/page1.html', context)
 
 @login_required
 @csrf_exempt

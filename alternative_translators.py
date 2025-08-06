@@ -5,27 +5,21 @@ from typing import Optional
 
 def get_naver_papago_translation(text: str) -> str:
     try:
-        # Import Django models only when needed
-        from django.apps import apps
-        if apps.is_installed('vocab'):
-            from vocab.models import GlobalTranslation
+        from vocab.models import GlobalTranslation
+        
+        cached_translation = GlobalTranslation.objects.filter(korean_word=text).first()
+        if cached_translation:
+            cached_translation.usage_count += 1
+            cached_translation.save()
+            return cached_translation.english_translation
             
-            cached_translation = GlobalTranslation.objects.filter(korean_word=text).first()
-            if cached_translation:
-                cached_translation.usage_count += 1
-                cached_translation.save()
-                return cached_translation.english_translation
-                
-            translation = _request_papago_api(text)
-            if translation != text:
-                GlobalTranslation.objects.create(
-                    korean_word=text,
-                    english_translation=translation
-                )
-            return translation
-        else:
-            # Fallback if vocab app is not available
-            return _request_papago_api(text)
+        translation = _request_papago_api(text)
+        if translation != text:
+            GlobalTranslation.objects.create(
+                korean_word=text,
+                english_translation=translation
+            )
+        return translation
     except Exception as e:
         print(f"Papago translation error for '{text}': {e}")
         return text
