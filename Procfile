@@ -1,0 +1,1 @@
+web: gunicorn jorp.wsgi:application 
