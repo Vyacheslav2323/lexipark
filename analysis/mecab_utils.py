@@ -10,7 +10,7 @@ try:
     print("MeCab successfully imported!")
 except ImportError:
     MECAB_AVAILABLE = False
-    print("Warning: MeCab not available. Korean text analysis will be limited.")
+    print("MeCab not available - using enhanced fallback Korean text analysis.")
 
 def tokenize(text):
     if not MECAB_AVAILABLE:
