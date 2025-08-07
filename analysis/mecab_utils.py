@@ -138,7 +138,8 @@ def create_interactive_sentence(sentence, results, translations, vocab_words=Non
         if start_pos > current_pos:
             html_parts.append(f'<span>{sentence[current_pos:start_pos]}</span>')
         
-        is_korean = any('\u3131' <= char <= '\u318E' or '\uAC00' <= char <= '\uD7A3' for char in str(base))
+        # Check if the surface text contains Korean characters, regardless of POS tags
+        is_korean = any('\uAC00' <= char <= '\uD7A3' for char in str(surface))
         
         if is_korean:
             css_class = 'interactive-word'

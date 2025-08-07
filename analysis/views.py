@@ -37,7 +37,7 @@ def analyze_view(request):
                 translations = translate_results(results)
                 print(f"PRODUCTION DEBUG: Translations: {translations}")
                 
-                words = [r[1] for r in results if r[1] is not None and any('\uAC00' <= char <= '\uD7A3' for char in str(r[1]))]
+                words = [r[0] for r in results if r[0] is not None and any('\uAC00' <= char <= '\uD7A3' for char in str(r[0]))]
                 print(f"PRODUCTION DEBUG: Korean words found: {words}")
                 
                 user_vocab = set(Vocabulary.objects.filter(user=request.user).values_list('korean_word', flat=True))
@@ -46,11 +46,11 @@ def analyze_view(request):
                 
                 word_data = {}
                 for i, (surface, base, pos, grammar_info) in enumerate(results):
-                    if base is not None and any('\uAC00' <= char <= '\uD7A3' for char in str(base)):
-                        word_data[base] = {
+                    if surface is not None and any('\uAC00' <= char <= '\uD7A3' for char in str(surface)):
+                        word_data[surface] = {
                             'pos': pos,
                             'grammar_info': grammar_info,
-                            'translation': translations[i] if i < len(translations) else base
+                            'translation': translations[i] if i < len(translations) else surface
                         }
                 
                 for w in new_words:
