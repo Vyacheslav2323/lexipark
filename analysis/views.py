@@ -18,6 +18,7 @@ def health_check(request):
     except Exception as e:
         return HttpResponse(f"Database Error: {str(e)}", content_type="text/plain", status=500)
 
+@csrf_exempt
 def analyze_view(request):
     results = None
     translations = None
@@ -27,8 +28,15 @@ def analyze_view(request):
     if request.method == 'POST':
         if request.POST.get('know_rest') == '1':
             text = request.POST.get('textinput', '')
-            results = analyze_sentence(text)
-            translations = translate_results(results)
+            print(f"Processing text: {text}")  # Debug
+            try:
+                results = analyze_sentence(text)
+                translations = translate_results(results)
+                print(f"Analysis results: {results}")  # Debug
+            except Exception as e:
+                print(f"Error in analysis: {e}")  # Debug
+                results = []
+                translations = []
             words = [r[1] for r in results if r[1] is not None and any('\uAC00' <= char <= '\uD7A3' for char in str(r[1]))]
             
             if request.user.is_authenticated:
