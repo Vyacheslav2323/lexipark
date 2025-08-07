@@ -2,9 +2,29 @@
 import requests
 import json
 import re
+import os
 
 # Import MeCab for Korean text analysis
 from MeCab import Tagger
+
+def _request_papago_api(text: str) -> str:
+    url = "https://papago.apigw.ntruss.com/nmt/v1/translation"
+    headers = {
+        "x-ncp-apigw-api-key-id": os.getenv('NAVER_CLIENT_ID', 'x8wqn9022w'),
+        "x-ncp-apigw-api-key": os.getenv('NAVER_CLIENT_SECRET', 'c8BMfUF2lqFldkpcFe6k2j5GKGvleIPkpPvHraSC'),
+        "Content-Type": "application/json"
+    }
+    data = {
+        "source": "ko",
+        "target": "en",
+        "text": text
+    }
+    
+    response = requests.post(url, headers=headers, json=data, timeout=10)
+    if response.status_code == 200:
+        result = response.json()
+        return result["message"]["result"]["translatedText"]
+    return text
 
 def tokenize(text):
     tagger = Tagger()
@@ -60,42 +80,17 @@ def translate_results(results):
             continue
         if isinstance(result, str) and result not in ['NNG', 'NNP', 'NP', 'NR', 'MAG', 'MAJ', 'MM']:
             if any('\u3131' <= char <= '\u318E' or '\uAC00' <= char <= '\uD7A3' for char in result):
-                translation = get_google_translation(result)
+                translation = get_papago_translation(result)
                 translations.append(translation)
             else:
                 translations.append(result)
             continue
         if isinstance(result, str) and any('\u3131' <= char <= '\u318E' or '\uAC00' <= char <= '\uD7A3' for char in result):
-            translation = get_google_translation(result)
+            translation = get_papago_translation(result)
             translations.append(translation)
         else:
             translations.append(result)
     return translations
-
-def get_google_translation(word):
-    try:
-        from vocab.models import GlobalTranslation
-        from alternative_translators import translate_with_alternative
-        
-        cached_translation = GlobalTranslation.objects.filter(korean_word=word).first()
-        if cached_translation:
-            cached_translation.usage_count += 1
-            cached_translation.save()
-            return cached_translation.english_translation
-        
-        translation = translate_with_alternative(word, "papago")
-        if translation != word:
-            try:
-                GlobalTranslation.objects.create(
-                    korean_word=word,
-                    english_translation=translation
-                )
-            except Exception as db_error:
-                print(f"Translation error for '{word}': {db_error}")
-        return translation
-    except Exception as e:
-        print(f"Translation error for '{word}': {e}")
-        return word
 
 def retention_to_color(retention_rate):
     if retention_rate >= 1.0:
@@ -122,7 +117,9 @@ def create_interactive_sentence(sentence, results, translations, vocab_words=Non
         if start_pos > current_pos:
             html_parts.append(f'<span>{sentence[current_pos:start_pos]}</span>')
         
-        if any('\u3131' <= char <= '\u318E' or '\uAC00' <= char <= '\uD7A3' for char in str(base)):
+        is_korean = any('\u3131' <= char <= '\u318E' or '\uAC00' <= char <= '\uD7A3' for char in str(base))
+        
+        if is_korean:
             css_class = 'interactive-word'
             if base in vocab_words:
                 try:
@@ -170,7 +167,6 @@ def split_text_into_sentences(text):
 def get_sentence_translation(sentence):
     try:
         from vocab.models import GlobalTranslation
-        from alternative_translators import translate_with_alternative
         
         cached_translation = GlobalTranslation.objects.filter(korean_word=sentence).first()
         if cached_translation:
@@ -178,12 +174,12 @@ def get_sentence_translation(sentence):
             cached_translation.save()
             return cached_translation.english_translation
         
-        translation = translate_with_alternative(sentence, "papago")
+        translation = _request_papago_api(sentence)
         if translation != sentence:
             try:
-                GlobalTranslation.objects.create(
+                GlobalTranslation.objects.get_or_create(
                     korean_word=sentence,
-                    english_translation=translation
+                    defaults={'english_translation': translation}
                 )
             except Exception as db_error:
                 print(f"Translation error for sentence '{sentence}': {db_error}")
@@ -215,5 +211,29 @@ def create_interactive_text_with_sentences(text, vocab_words=None):
             html_parts.append(sentence_html)
     
     return ''.join(html_parts)
+
+def get_papago_translation(word):
+    try:
+        from vocab.models import GlobalTranslation
+        
+        cached_translation = GlobalTranslation.objects.filter(korean_word=word).first()
+        if cached_translation:
+            cached_translation.usage_count += 1
+            cached_translation.save()
+            return cached_translation.english_translation
+        
+        translation = _request_papago_api(word)
+        if translation != word:
+            try:
+                GlobalTranslation.objects.get_or_create(
+                    korean_word=word,
+                    defaults={'english_translation': translation}
+                )
+            except Exception as db_error:
+                print(f"Translation error for '{word}': {db_error}")
+        return translation
+    except Exception as e:
+        print(f"Translation error for '{word}': {e}")
+        return word
 
 
