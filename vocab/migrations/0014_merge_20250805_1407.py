@@ -6,7 +6,6 @@ from django.db import migrations
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('vocab', '0013_add_recall_fields'),
         ('vocab', '0013_vocabulary_last_recall_update_and_more'),
     ]
 
