@@ -1,22 +1,10 @@
 from django.shortcuts import render
-from django.http import JsonResponse, HttpResponse
+from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.decorators import login_required
 import json
 from .mecab_utils import analyze_sentence, translate_results, create_interactive_sentence, create_interactive_text_with_sentences
 from vocab.models import Vocabulary
-
-# Create your views here.
-
-def health_check(request):
-    try:
-        # Test database connection
-        from django.db import connection
-        with connection.cursor() as cursor:
-            cursor.execute("SELECT 1")
-        return HttpResponse("OK", content_type="text/plain")
-    except Exception as e:
-        return HttpResponse(f"Database Error: {str(e)}", content_type="text/plain", status=500)
 
 def analyze_view(request):
     results = None
@@ -25,27 +13,23 @@ def analyze_view(request):
     vocab_words = set()
     
     if request.method == 'POST':
-        if request.POST.get('know_rest') == '1':
-            text = request.POST.get('textinput', '')
+        text = request.POST.get('textinput', '')
+        if text.strip():
             results = analyze_sentence(text)
             translations = translate_results(results)
-            words = [r[1] for r in results if r[1] is not None and any('\uAC00' <= char <= '\uD7A3' for char in str(r[1]))]
             
             if request.user.is_authenticated:
                 vocab_words = set(Vocabulary.objects.filter(user=request.user).values_list('korean_word', flat=True))
-                interactive_html = create_interactive_text_with_sentences(text, vocab_words)
-        else:
-            text = request.POST.get('textinput', '')
-            if text.strip():
-                if request.user.is_authenticated:
-                    vocab_words = set(Vocabulary.objects.filter(user=request.user).values_list('korean_word', flat=True))
-                    
-                interactive_html = create_interactive_text_with_sentences(text, vocab_words)
+            else:
+                vocab_words = set()
+            
+            interactive_html = create_interactive_text_with_sentences(text, vocab_words)
     
     context = {
         'results': results,
         'translations': translations,
-        'interactive_html': interactive_html
+        'interactive_html': interactive_html,
+        'analyzed_text': text if 'text' in locals() else ''
     }
     return render(request, 'analysis/page1.html', context)
 
@@ -105,6 +89,62 @@ def track_sentence_hover(request):
 
 @login_required
 @csrf_exempt
+def finish_analysis_view(request):
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            text = data.get('text', '')
+            
+            if text.strip():
+                results = analyze_sentence(text)
+                translations = translate_results(results)
+                words = [r[1] for r in results if r[1] is not None and any('\uAC00' <= char <= '\uD7A3' for char in str(r[1]))]
+                user_vocab = set(Vocabulary.objects.filter(user=request.user).values_list('korean_word', flat=True))
+                new_words = [w for w in words if w not in user_vocab]
+                
+                word_data = {}
+                for i, (surface, base, pos, grammar_info) in enumerate(results):
+                    if base is not None and any('\uAC00' <= char <= '\uD7A3' for char in str(base)):
+                        word_data[base] = {
+                            'pos': pos,
+                            'grammar_info': grammar_info,
+                            'translation': translations[i] if i < len(translations) else base
+                        }
+                
+                for w in new_words:
+                    data = word_data.get(w, {'pos': '', 'grammar_info': '', 'translation': w})
+                    vocab_entry, created = Vocabulary.objects.get_or_create(
+                        user=request.user,
+                        korean_word=w,
+                        defaults={
+                            'pos': data['pos'],
+                            'grammar_info': data['grammar_info'],
+                            'english_translation': data['translation'],
+                            'hover_count': 0,
+                            'total_hover_time': 0.0,
+                            'last_5_durations': '[]',
+                            'retention_rate': 1.0,
+                            'alpha_prior': 10,
+                            'beta_prior': 0
+                        }
+                    )
+                    if not created:
+                        vocab_entry.alpha_prior = 10
+                        vocab_entry.beta_prior = 0
+                        vocab_entry.save()
+                
+                return JsonResponse({
+                    'success': True,
+                    'message': f'Added {len(new_words)} words to vocabulary',
+                    'words_added': new_words
+                })
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)})
+    
+    return JsonResponse({'success': False, 'error': 'Invalid request'})
+
+@login_required
+@csrf_exempt
 def batch_update_recalls_view(request):
     if request.method == 'POST':
         try:
@@ -130,70 +170,5 @@ def batch_update_recalls_view(request):
             })
         except Exception as e:
             return JsonResponse({'success': False, 'error': str(e)})
-    
-    return JsonResponse({'success': False, 'error': 'Invalid request'})
-
-@login_required
-@csrf_exempt
-def finish_analysis_view(request):
-    if request.method == 'POST':
-        try:
-            data = json.loads(request.body)
-            text = data.get('text', '')
-            hovered_words = set(data.get('hovered_words', []))
-            
-            if text:
-                results = analyze_sentence(text)
-                translations = translate_results(results)
-                words = [r[1] for r in results if r[1] is not None and any('\uAC00' <= char <= '\uD7A3' for char in str(r[1]))]
-                
-                word_data = {}
-                for i, (surface, base, pos, grammar_info) in enumerate(results):
-                    if base is not None and any('\uAC00' <= char <= '\uD7A3' for char in str(base)):
-                        word_data[base] = {
-                            'pos': pos,
-                            'grammar_info': grammar_info,
-                            'translation': translations[i] if i < len(translations) else base
-                        }
-                
-                user_vocab = set(Vocabulary.objects.filter(user=request.user).values_list('korean_word', flat=True))
-                new_words = [w for w in words if w not in user_vocab]
-                
-                for w in new_words:
-                    data = word_data.get(w, {'pos': '', 'grammar_info': '', 'translation': w})
-                    vocab, created = Vocabulary.objects.get_or_create(
-                        user=request.user,
-                        korean_word=w,
-                        defaults={
-                            'pos': data['pos'],
-                            'grammar_info': data['grammar_info'],
-                            'english_translation': data['translation'],
-                            'hover_count': 0,
-                            'total_hover_time': 0.0,
-                            'last_5_durations': '[]',
-                            'retention_rate': 1.0
-                        }
-                    )
-                    
-                    if not created:
-                        from vocab.bayesian_recall import update_vocabulary_recall
-                        vocab = update_vocabulary_recall(vocab, had_lookup=False)
-                        vocab.save()
-                
-                return JsonResponse({
-                    'success': True,
-                    'message': f'Analysis finished. Added {len(new_words)} words to vocabulary.'
-                })
-            else:
-                return JsonResponse({
-                    'success': False,
-                    'message': 'No text provided'
-                }, status=400)
-                
-        except Exception as e:
-            return JsonResponse({
-                'success': False,
-                'message': str(e)
-            }, status=500)
     
     return JsonResponse({'success': False, 'error': 'Invalid request'})

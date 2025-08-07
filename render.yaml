@@ -18,7 +18,6 @@ services:
         value: x8wqn9022w
       - key: NAVER_CLIENT_SECRET
         value: c8BMfUF2lqFldkpcFe6k2j5GKGvleIPkpPvHraSC
-    healthCheckPath: /health/
 
 databases:
   - name: jorp-postgres

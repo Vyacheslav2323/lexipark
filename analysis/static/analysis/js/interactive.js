@@ -1,4 +1,4 @@
-console.log('Interactive.js loaded successfully');
+
 
 let recallInteractions = [];
 let recallBatchTimeout = null;
@@ -12,7 +12,6 @@ function getCookie(name) {
 }
 
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('DOM loaded, setting up interactive words');
     document.querySelectorAll('.interactive-word[data-original]').forEach(function(word) {
         const original = word.getAttribute('data-original');
         if (word.classList.contains('in-vocab') || word.style.backgroundColor) {
@@ -25,13 +24,11 @@ document.addEventListener('DOMContentLoaded', function() {
         
         word.addEventListener('mouseenter', function() {
             hoverStartTime = Date.now();
-            console.log(`Hover started on: ${original}`);
         });
         
         word.addEventListener('mouseleave', function() {
             if (hoverStartTime) {
                 const hoverDuration = Date.now() - hoverStartTime;
-                console.log(`Hover ended on: ${original}, duration: ${hoverDuration}ms`);
                 trackHoverDuration(original, hoverDuration);
                 
                 hoveredWords.add(original);
@@ -51,11 +48,6 @@ document.addEventListener('DOMContentLoaded', function() {
             const grammar = this.getAttribute('data-grammar');
             const isInVocab = this.classList.contains('in-vocab');
             
-            console.log('Clicked:', original, '->', translation);
-            console.log('POS:', pos);
-            console.log('Grammar:', grammar);
-            console.log('Already in vocab:', isInVocab);
-            
             if (isInVocab) {
                 showNotification('Word is already in your vocabulary!', 'info');
                 hoveredWords.add(original);
@@ -69,24 +61,14 @@ document.addEventListener('DOMContentLoaded', function() {
     const analyzeForm = document.getElementById('analyze-form');
     const analyzeBtn = document.getElementById('analyze-btn');
     if (analyzeForm) {
-        console.log('Found analyze form, adding submit event listener');
         analyzeForm.addEventListener('submit', function(e) {
-            console.log('Analyze form submitted');
             if (!handleAnalyzeSubmit()) {
                 e.preventDefault();
             }
         });
-    } else {
-        console.log('Analyze form not found');
     }
 
-    const finishAnalysisBtn = document.getElementById('finish-analysis-btn');
-    if (finishAnalysisBtn) {
-        finishAnalysisBtn.addEventListener('click', function(e) {
-            e.preventDefault();
-            handleFinishAnalysis();
-        });
-    }
+    // We'll attach the event listener dynamically when the button appears
     
     window.addEventListener('beforeunload', function(e) {
         if (displayedVocabWords.size > 0 && !isAnalysisFinished) {
@@ -118,37 +100,71 @@ document.addEventListener('DOMContentLoaded', function() {
         
         punctuation.addEventListener('mouseenter', function() {
             hoverStartTime = Date.now();
-            console.log(`Sentence hover started on punctuation: ${this.textContent}`);
             showSentenceTranslation(this, sentenceTranslation);
         });
         
         punctuation.addEventListener('mouseleave', function() {
             if (hoverStartTime) {
                 const hoverDuration = Date.now() - hoverStartTime;
-                console.log(`Sentence hover ended on punctuation: ${this.textContent}, duration: ${hoverDuration}ms`);
                 trackSentenceHoverDuration(this.textContent, hoverDuration);
                 hoverStartTime = null;
             }
             hideSentenceTranslation();
         });
     });
+    
+    // Set up a mutation observer to watch for when the finish analysis button appears
+    const observer = new MutationObserver(function(mutations) {
+        mutations.forEach(function(mutation) {
+            if (mutation.type === 'childList') {
+                mutation.addedNodes.forEach(function(node) {
+                    if (node.nodeType === 1) { // Element node
+                        const finishBtn = node.querySelector ? node.querySelector('#finish-analysis-btn') : null;
+                        if (finishBtn) {
+                            attachFinishAnalysisListener(finishBtn);
+                        }
+                    }
+                });
+            }
+        });
+    });
+    
+    // Start observing
+    observer.observe(document.body, { childList: true, subtree: true });
+    
+    // Also check if button already exists
+    const existingFinishBtn = document.getElementById('finish-analysis-btn');
+    if (existingFinishBtn) {
+        attachFinishAnalysisListener(existingFinishBtn);
+    }
+    
+    // Also try to attach the listener after a short delay
+    setTimeout(function() {
+        const delayedFinishBtn = document.getElementById('finish-analysis-btn');
+        if (delayedFinishBtn) {
+            attachFinishAnalysisListener(delayedFinishBtn);
+        }
+    }, 1000);
 });
 
+function attachFinishAnalysisListener(button) {
+    button.addEventListener('click', function(e) {
+        e.preventDefault();
+        handleFinishAnalysis();
+    });
+}
+
 function handleAnalyzeSubmit() {
-    console.log('handleAnalyzeSubmit called');
     const btn = document.getElementById('analyze-btn');
     const spinner = document.getElementById('analyze-spinner');
     const textInput = document.getElementById('textinput');
     const text = textInput.value.trim();
-
-    console.log('Text input:', text);
 
     if (!text) {
         showNotification('Please enter text to analyze', 'error');
         return false; // Prevent form submission
     }
 
-    console.log('Showing spinner and disabling button');
     spinner.style.display = 'inline-block';
     btn.disabled = true;
     
@@ -160,14 +176,15 @@ function handleFinishAnalysis() {
     const spinner = document.getElementById('finish-spinner');
     const text = finishBtn.getAttribute('data-text');
     
-    if (!text) {
-        showNotification('No text to finish analysis for', 'error');
+    if (!text || !text.trim()) {
+        showNotification('No text to finish analysis', 'error');
         return;
     }
     
     spinner.style.display = 'inline-block';
     finishBtn.disabled = true;
     
+    // First, save unknown words as known (alpha=10, beta=0)
     fetch('/analysis/finish-analysis/', {
         method: 'POST',
         headers: {
@@ -175,22 +192,32 @@ function handleFinishAnalysis() {
             'X-Requested-With': 'XMLHttpRequest',
         },
         body: JSON.stringify({
-            text: text,
-            hovered_words: Array.from(hoveredWords)
+            text: text
         })
     })
-    .then(response => response.json())
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        return response.json();
+    })
     .then(data => {
         if (data.success) {
             showNotification(data.message, 'success');
             isAnalysisFinished = true;
+            
+            // Then update recall rates for non-hovered words
+            finishAnalysis();
+            
+            // Refresh the page to show updated vocabulary
+            window.location.reload();
         } else {
-            showNotification('Error finishing analysis: ' + data.message, 'error');
+            showNotification('Error finishing analysis: ' + data.error, 'error');
         }
     })
     .catch(error => {
-        console.error('Network error:', error);
-        showNotification('Network error while finishing analysis', 'error');
+        console.error('Network error in finish analysis:', error);
+        showNotification('Network error while finishing analysis: ' + error.message, 'error');
     })
     .finally(() => {
         spinner.style.display = 'none';
@@ -283,9 +310,7 @@ function trackHoverDuration(koreanWord, duration) {
     })
     .then(response => response.json())
     .then(data => {
-        if (data.success) {
-            console.log('Hover tracked for:', koreanWord, 'duration:', duration, 'ms');
-        } else {
+        if (!data.success) {
             console.error('Error tracking hover:', data.error);
         }
     })
@@ -324,9 +349,7 @@ function sendBatchRecallUpdates() {
     })
     .then(response => response.json())
     .then(data => {
-        if (data.success) {
-            console.log(`Batch updated ${data.updated_count} recall rates`);
-        } else {
+        if (!data.success) {
             console.error('Error in batch recall update:', data.error);
         }
     })
@@ -352,7 +375,6 @@ function saveToVocabulary(koreanWord, pos, grammarInfo, translation) {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            console.log('Vocabulary saved:', data.message);
             showNotification('Word saved to vocabulary!', 'success');
             document.querySelectorAll('.interactive-word[data-original="' + koreanWord + '"]').forEach(function(el) {
                 el.classList.add('in-vocab');
@@ -365,7 +387,7 @@ function saveToVocabulary(koreanWord, pos, grammarInfo, translation) {
     })
     .catch(error => {
         console.error('Network error:', error);
-        showNotification('Network error while saving word', 'error');
+        showNotification('Login to continue', 'error');
     });
 }
 
@@ -390,8 +412,8 @@ function finishAnalysis() {
         })
         .then(response => response.json())
         .then(data => {
-            if (data.success) {
-                console.log(`Finished analysis: recorded ${nonHoveredWords.length} successful recalls for non-hovered words:`, nonHoveredWords);
+            if (!data.success) {
+                console.error('Error finishing analysis:', data.error);
             }
         })
         .catch(error => {
