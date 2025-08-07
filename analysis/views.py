@@ -65,10 +65,9 @@ def analyze_view(request):
                         }
                     )
                 vocab_words = set(Vocabulary.objects.filter(user=request.user).values_list('korean_word', flat=True))
+                interactive_html = create_interactive_text_with_sentences(text, vocab_words)
             else:
-                vocab_words = set()
-            
-            interactive_html = create_interactive_text_with_sentences(text, vocab_words)
+                interactive_html = create_interactive_text_with_sentences(text, vocab_words)
         else:
             text = request.POST.get('textinput', '')
             if text.strip():
