@@ -15,15 +15,19 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 # ── 2. Python wrapper + Korean dictionary + Konlpy ───────────────────────────
-# mecab-python3   → C-extension with wheels for Linux
-# mecab-ko-dic    → packaged Eunjeon ko-dictionary
-# konlpy          → NLP wrapper we actually call in the app
 RUN pip install --no-cache-dir \
         mecab-python3 \
         mecab-ko-dic \
         konlpy
 
-# Tell Konlpy where the dictionary was installed
+# ── 2b. Tell MeCab where that dictionary lives (NEW) ─────────────────────────
+RUN set -e; \
+    DICDIR=$(python - <<'PY'\nimport mecab_ko_dic, os, sys; sys.stdout.write(os.path.dirname(mecab_ko_dic.dictionary_path))\nPY); \
+    mkdir -p /usr/local/etc /usr/local/lib/mecab/dic; \
+    echo "dicdir = ${DICDIR}" > /usr/local/etc/mecabrc; \
+    ln -s "${DICDIR}" /usr/local/lib/mecab/dic/mecab-ko-dic || true
+
+# (optional) leave this ENV—harmless if mecabrc is present
 ENV MECAB_ARGS="-d $(python - <<'PY'\nimport mecab_ko_dic, os; print(os.path.dirname(mecab_ko_dic.dictionary_path))\nPY)"
 
 # ── 3. Project deps & code ───────────────────────────────────────────────────
