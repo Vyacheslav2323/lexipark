@@ -82,6 +82,11 @@
                     {{ interactive_html|safe }}
                   </p>
                 </div>
+                <div class="mt-2">
+                  <small class="text-muted">
+                    <strong>Debug:</strong> Interactive words in HTML: {{ interactive_html|length }} characters
+                  </small>
+                </div>
                 <small class="text-muted mt-2 d-block">
                   <i class="fas fa-info-circle me-1"></i>Hover over Korean words to see translations
                 </small>
@@ -100,6 +105,28 @@
   </div>
   
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    console.log('Bootstrap loaded successfully');
+    console.log('About to load interactive.js');
+    
+    // Test if static files are accessible
+    fetch('{% static "analysis/js/interactive.js" %}')
+      .then(response => {
+        console.log('Interactive.js fetch response:', response.status, response.statusText);
+        return response.text();
+      })
+      .then(text => {
+        console.log('Interactive.js content length:', text.length);
+        console.log('First 100 chars:', text.substring(0, 100));
+      })
+      .catch(error => {
+        console.error('Error loading interactive.js:', error);
+      });
+  </script>
   <script src="{% static 'analysis/js/interactive.js' %}"></script>
+  <script>
+    console.log('After loading interactive.js');
+    console.log('Interactive words found:', document.querySelectorAll('.interactive-word').length);
+  </script>
 </body>
 </html> 
