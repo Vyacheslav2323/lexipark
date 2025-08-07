@@ -1,9 +1,5 @@
 from django.urls import path
-<<<<<<< Updated upstream
-from .views import analyze_view, track_hover, track_sentence_hover, batch_update_recalls_view, analyze_ajax, finish_analysis_ajax
-=======
-from .views import analyze_view, track_hover, track_sentence_hover, batch_update_recalls_view, health_check
->>>>>>> Stashed changes
+from .views import analyze_view, track_hover, track_sentence_hover, batch_update_recalls_view, analyze_ajax, finish_analysis_ajax, health_check
 
 urlpatterns = [
     path('page1/', analyze_view, name='analyze'),
