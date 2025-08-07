@@ -67,19 +67,31 @@ def analyze_token(surface, pos, features):
     return pos
 
 def analyze_sentence(sentence):
-    tagger = Tagger()
-    parsed = tagger.parse(sentence)
-    results = []
-    for line in parsed.split('\n'):
-        if line == 'EOS' or not line.strip():
-            continue
-        surface, features_str = line.split('\t')
-        features = features_str.split(',')
-        pos = features[0]
-        result = analyze_token(surface, pos, features)
-        grammar_info = ','.join(features[1:]) if len(features) > 1 else ''
-        results.append((surface, result, pos, grammar_info))
-    return results
+    try:
+        tagger = Tagger()
+        parsed = tagger.parse(sentence)
+        print(f"PRODUCTION DEBUG: MeCab parsed result: {parsed}")
+        
+        if parsed is None:
+            print("PRODUCTION DEBUG: MeCab returned None")
+            return []
+            
+        results = []
+        for line in parsed.split('\n'):
+            if line == 'EOS' or not line.strip():
+                continue
+            surface, features_str = line.split('\t')
+            features = features_str.split(',')
+            pos = features[0]
+            result = analyze_token(surface, pos, features)
+            grammar_info = ','.join(features[1:]) if len(features) > 1 else ''
+            results.append((surface, result, pos, grammar_info))
+        
+        print(f"PRODUCTION DEBUG: MeCab analysis results: {results}")
+        return results
+    except Exception as e:
+        print(f"PRODUCTION DEBUG: MeCab error: {e}")
+        return []
 
 def translate_results(results):
     translations = []
