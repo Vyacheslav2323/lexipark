@@ -36,6 +36,13 @@ ALLOWED_HOSTS = [
     '.onrender.com',  # Allow all onrender.com subdomains
 ]
 
+# CSRF settings
+CSRF_TRUSTED_ORIGINS = [
+    'http://localhost:8000',
+    'http://127.0.0.1:8000',
+    'https://lexipark.onrender.com',
+]
+
 
 # Application definition
 
@@ -171,7 +178,7 @@ SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 SECURE_HSTS_PRELOAD = True
 
 # Session Security
-SESSION_COOKIE_SECURE = not DEBUG
-CSRF_COOKIE_SECURE = not DEBUG
+SESSION_COOKIE_SECURE = False  # Allow HTTP in development
+CSRF_COOKIE_SECURE = False     # Allow HTTP in development
 SESSION_COOKIE_HTTPONLY = True
 CSRF_COOKIE_HTTPONLY = True
