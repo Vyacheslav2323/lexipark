@@ -56,6 +56,22 @@
               </div>
             </form>
             
+            {% if debug_info %}
+              <div class="mt-4">
+                <h6>Debug Info:</h6>
+                <div class="border rounded p-3 bg-light">
+                  <p><strong>STATIC_ROOT:</strong> {{ debug_info.STATIC_ROOT }}</p>
+                  <p><strong>STATIC_ROOT_EXISTS:</strong> {{ debug_info.STATIC_ROOT_EXISTS }}</p>
+                  <p><strong>CSS_EXISTS:</strong> {{ debug_info.CSS_EXISTS }}</p>
+                  <p><strong>JS_EXISTS:</strong> {{ debug_info.JS_EXISTS }}</p>
+                  <p><strong>CSS_SIZE:</strong> {{ debug_info.CSS_SIZE }} bytes</p>
+                  <p><strong>JS_SIZE:</strong> {{ debug_info.JS_SIZE }} bytes</p>
+                  <p><strong>STATICFILES_STORAGE:</strong> {{ debug_info.STATICFILES_STORAGE }}</p>
+                  <p><strong>DEBUG:</strong> {{ debug_info.DEBUG }}</p>
+                </div>
+              </div>
+            {% endif %}
+            
             {% if interactive_html %}
               <div class="mt-4">
                 <label class="form-label">

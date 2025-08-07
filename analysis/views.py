@@ -107,10 +107,28 @@ def analyze_view(request):
                     
                     interactive_html = create_interactive_text_with_sentences(text, vocab_words)
         
+        # Add debugging info to context
+        import os
+        static_root = settings.STATIC_ROOT
+        css_path = os.path.join(static_root, 'analysis', 'css', 'interactive.css')
+        js_path = os.path.join(static_root, 'analysis', 'js', 'interactive.js')
+        
+        debug_info = {
+            'STATIC_ROOT': str(static_root),
+            'STATIC_ROOT_EXISTS': os.path.exists(static_root),
+            'CSS_EXISTS': os.path.exists(css_path),
+            'JS_EXISTS': os.path.exists(js_path),
+            'CSS_SIZE': os.path.getsize(css_path) if os.path.exists(css_path) else 0,
+            'JS_SIZE': os.path.getsize(js_path) if os.path.exists(js_path) else 0,
+            'STATICFILES_STORAGE': settings.STATICFILES_STORAGE,
+            'DEBUG': settings.DEBUG,
+        }
+        
         context = {
             'results': results,
             'translations': translations,
-            'interactive_html': interactive_html
+            'interactive_html': interactive_html,
+            'debug_info': debug_info
         }
         return render(request, 'analysis/page1.html', context)
     except Exception as e:
