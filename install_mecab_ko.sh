@@ -2,33 +2,39 @@
 
 set -e  # Exit on any error
 
-echo "Installing MeCab-ko and mecab-ko-dic for Korean..."
+echo "Installing MeCab and Korean dictionary using package manager..."
 
 # Install dependencies
 apt-get update
 apt-get install -y build-essential curl git autoconf automake libtool pkg-config
 
-# Install MeCab-ko (Korean fork of MeCab)
-cd /tmp
-git clone --depth 1 https://github.com/konlpy/mecab-ko.git
-cd mecab-ko
-./autogen.sh
-./configure
-make -j$(nproc)
-make install
+# Install MeCab and Korean dictionary via package manager
+apt-get install -y mecab mecab-utils mecab-ko mecab-ko-dic
 
-# Install mecab-ko-dic (Korean dictionary)
-cd /tmp
-git clone --depth 1 https://github.com/konlpy/mecab-ko-dic.git
-cd mecab-ko-dic
-./autogen.sh
-./configure --with-dicdir=/usr/local/lib/mecab/dic
-make -j$(nproc)
-make install
+# Find the correct dictionary path
+DIC_PATH=""
+for path in "/usr/local/lib/mecab/dic/mecab-ko-dic" "/usr/lib/mecab/dic/mecab-ko-dic" "/opt/homebrew/lib/mecab/dic/mecab-ko-dic"; do
+    if [ -d "$path" ]; then
+        DIC_PATH="$path"
+        break
+    fi
+done
+
+if [ -z "$DIC_PATH" ]; then
+    echo "⚠️  Could not find Korean dictionary path automatically"
+    echo "   Trying to find it..."
+    DIC_PATH=$(find /usr -name "mecab-ko-dic" -type d 2>/dev/null | head -1)
+    if [ -z "$DIC_PATH" ]; then
+        echo "❌ Could not find Korean dictionary. Please check installation."
+        exit 1
+    fi
+fi
+
+echo "✅ Found Korean dictionary at: $DIC_PATH"
 
 # Set up mecabrc
 cat > /usr/local/etc/mecabrc << EOF
-dicdir = /usr/local/lib/mecab/dic/mecab-ko-dic
+dicdir = $DIC_PATH
 EOF
 
 # Add MeCab to PATH if needed
@@ -41,4 +47,4 @@ mecab --version
 echo "Testing Korean tokenization..."
 echo "안녕하세요. 만나서 반갑습니다." | mecab
 
-echo "✅ MeCab-ko installation completed successfully!"
+echo "✅ MeCab installation completed successfully!"
