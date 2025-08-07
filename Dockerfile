@@ -8,7 +8,7 @@ ENV PYTHONUNBUFFERED 1
 # Set the working directory early
 WORKDIR /app
 
-# Install system dependencies for both the application and MeCab compilation
+# Install system dependencies. 'curl' is needed for the MeCab installer.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     curl \
@@ -21,42 +21,23 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     swig \
     && rm -rf /var/lib/apt/lists/*
 
-# --- MeCab-ko Installation ---
-
-ADD https://bitbucket.org/eunjeon/mecab-ko/downloads/mecab-0.996-ko-0.9.2.tar.gz /tmp/
-ADD https://bitbucket.org/eunjeon/mecab-ko-dic/downloads/mecab-ko-dic-2.1.1-20180720.tar.gz /tmp/
-
-# --- CHANGE IS HERE ---
-# Compile and install MeCab from source using the correct extracted directory name
-RUN cd /tmp/eunjeon-mecab-ko-c23f290 && \
-    ./configure && \
-    make -j$(nproc) && \
-    make install
-
-# --- AND CHANGE IS HERE ---
-# Compile and install the MeCab dictionary using its correct directory name
-RUN cd /tmp/eunjeon-mecab-ko-dic-1f2fdDC && \
-    ./configure --with-dicdir=/usr/local/lib/mecab/dic && \
-    make -j$(nproc) && \
-    make install
-
-# Configure library path and mecabrc for the system
-RUN echo "/usr/local/lib" > /etc/ld.so.conf.d/mecab.conf && \
-    ldconfig && \
-    echo "dicdir = /usr/local/lib/mecab/dic/mecab-ko-dic" > /usr/local/etc/mecabrc
+# --- MeCab-ko Installation (The Robust Way) ---
+# Use the official Konlpy installer script.
+# This script is maintained by the project and handles finding the correct download URLs.
+# 'curl -s ...' downloads the script, and '| bash -s' executes it.
+RUN curl -s https://raw.githubusercontent.com/konlpy/konlpy/master/scripts/mecab.sh | bash -s
 
 # --- Python Dependencies ---
+# Copy only the requirements file first to leverage Docker cache.
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # --- Application Code ---
+# Now copy the rest of your application code
 COPY . .
 
 # Collect static files
 RUN python manage.py collectstatic --no-input --verbosity=2
-
-# Clean up build artifacts to keep the final image small
-RUN rm -rf /tmp/*
 
 # Make startup script executable
 RUN chmod +x start.sh
