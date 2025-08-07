@@ -20,16 +20,15 @@ RUN pip install --no-cache-dir \
         mecab-ko-dic \
         konlpy
 
-# ── 2b. Tell MeCab where that dictionary lives (NEW) ─────────────────────────
-RUN set -e; \
-    DICDIR=$(python - <<'PY'\nimport mecab_ko_dic, os, sys; sys.stdout.write(os.path.dirname(mecab_ko_dic.dictionary_path))\nPY); \
-    mkdir -p /usr/local/etc /usr/local/lib/mecab/dic; \
-    echo "dicdir = ${DICDIR}" > /usr/local/etc/mecabrc; \
-    ln -s "${DICDIR}" /usr/local/lib/mecab/dic/mecab-ko-dic || true
+# ── 2b. Tell MeCab where that dictionary lives (FIX) ─────────────────────────
+RUN set -e && \
+    DICDIR=$(python -c "import mecab_ko_dic, os, sys; sys.stdout.write(os.path.dirname(mecab_ko_dic.dictionary_path))") && \
+    mkdir -p /usr/local/etc /usr/local/lib/mecab/dic && \
+    echo \"dicdir = ${DICDIR}\" > /usr/local/etc/mecabrc && \
+    ln -s \"${DICDIR}\" /usr/local/lib/mecab/dic/mecab-ko-dic || true
 
 # (optional) leave this ENV—harmless if mecabrc is present
-ENV MECAB_ARGS="-d $(python - <<'PY'\nimport mecab_ko_dic, os; print(os.path.dirname(mecab_ko_dic.dictionary_path))\nPY)"
-
+ENV MECAB_ARGS="-d /usr/local/lib/mecab/dic/mecab-ko-dic"
 # ── 3. Project deps & code ───────────────────────────────────────────────────
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
