@@ -106,6 +106,10 @@ def create_interactive_sentence(sentence, results, translations, vocab_words=Non
     html_parts = []
     current_pos = 0
     
+    print(f"DEBUG: Processing sentence: {sentence}")
+    print(f"DEBUG: Results count: {len(results)}")
+    print(f"DEBUG: Translations count: {len(translations)}")
+    
     for i, ((surface, base, pos, grammar_info), translation) in enumerate(zip(results, translations)):
         if base is None:
             continue
@@ -118,6 +122,7 @@ def create_interactive_sentence(sentence, results, translations, vocab_words=Non
             html_parts.append(f'<span>{sentence[current_pos:start_pos]}</span>')
         
         is_korean = any('\u3131' <= char <= '\u318E' or '\uAC00' <= char <= '\uD7A3' for char in str(base))
+        print(f"DEBUG: Word '{base}' (surface: '{surface}') is Korean: {is_korean}")
         
         if is_korean:
             css_class = 'interactive-word'
@@ -142,7 +147,9 @@ def create_interactive_sentence(sentence, results, translations, vocab_words=Non
     if current_pos < len(sentence):
         html_parts.append(f'<span>{sentence[current_pos:]}</span>')
     
-    return ''.join(html_parts)
+    result = ''.join(html_parts)
+    print(f"DEBUG: Final HTML length: {len(result)}")
+    return result
 
 def split_text_into_sentences(text):
     import re
