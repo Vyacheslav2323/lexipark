@@ -28,13 +28,10 @@ def analyze_view(request):
     if request.method == 'POST':
         if request.POST.get('know_rest') == '1':
             text = request.POST.get('textinput', '')
-            print(f"Processing text: {text}")  # Debug
             try:
                 results = analyze_sentence(text)
                 translations = translate_results(results)
-                print(f"Analysis results: {results}")  # Debug
             except Exception as e:
-                print(f"Error in analysis: {e}")  # Debug
                 results = []
                 translations = []
             words = [r[1] for r in results if r[1] is not None and any('\uAC00' <= char <= '\uD7A3' for char in str(r[1]))]
@@ -68,7 +65,10 @@ def analyze_view(request):
                         }
                     )
                 vocab_words = set(Vocabulary.objects.filter(user=request.user).values_list('korean_word', flat=True))
-                interactive_html = create_interactive_text_with_sentences(text, vocab_words)
+            else:
+                vocab_words = set()
+            
+            interactive_html = create_interactive_text_with_sentences(text, vocab_words)
         else:
             text = request.POST.get('textinput', '')
             if text.strip():
