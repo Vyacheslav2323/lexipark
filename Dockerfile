@@ -1,3 +1,5 @@
+# Dockerfile – MeCab + Konlpy (works)
+
 FROM python:3.11.9-slim-bookworm
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
@@ -12,17 +14,17 @@ RUN apt-get update && \
         libmecab-dev && \
     rm -rf /var/lib/apt/lists/*
 
-# 2. MeCab wrapper + modern ko-dictionary + Konlpy
+# 2. MeCab wrapper, modern ko-dictionary wheel, Konlpy
 RUN pip install --no-cache-dir \
         mecab-python3 \
         python-mecab-ko-dic \
         konlpy
 
-# 2b. Write global mecabrc + KoNLPy-friendly symlink
+# 2b. Create global mecabrc + KoNLPy-friendly symlink
 RUN set -e && \
-    DICDIR=$(python -c "import mecab_ko_dic, sys; sys.stdout.write(mecab_ko_dic.dictionary_path)") && \
+    DICDIR=$(python -c "import mecab_ko_dic, sys; print(str(mecab_ko_dic.dictionary_path))") && \
     for CFG in /usr/local/etc/mecabrc /etc/mecabrc; do \
-        mkdir -p $(dirname "$CFG") && \
+        mkdir -p \"$(dirname \"$CFG\")\" && \
         echo \"dicdir = ${DICDIR}\" > \"$CFG\"; \
     done && \
     mkdir -p /usr/local/lib/mecab/dic && \
