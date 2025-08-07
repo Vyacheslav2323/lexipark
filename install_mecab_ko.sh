@@ -1,44 +1,44 @@
 #!/bin/bash
 
-# Install MeCab with Korean support
-echo "Installing MeCab with Korean support..."
+set -e  # Exit on any error
+
+echo "Installing MeCab-ko and mecab-ko-dic for Korean..."
 
 # Install dependencies
 apt-get update
-apt-get install -y build-essential curl git
+apt-get install -y build-essential curl git autoconf automake libtool pkg-config
 
-# Install basic MeCab
-apt-get install -y mecab mecab-utils
+# Install MeCab-ko (Korean fork of MeCab)
+cd /tmp
+git clone --depth 1 https://github.com/konlpy/mecab-ko.git
+cd mecab-ko
+./autogen.sh
+./configure
+make -j$(nproc)
+make install
 
-# Install Korean MeCab dictionary using git clone with depth 1
-echo "Installing Korean MeCab dictionary..."
+# Install mecab-ko-dic (Korean dictionary)
 cd /tmp
 git clone --depth 1 https://github.com/konlpy/mecab-ko-dic.git
 cd mecab-ko-dic
-./configure
-make
+./autogen.sh
+./configure --with-dicdir=/usr/local/lib/mecab/dic
+make -j$(nproc)
 make install
 
-# Setup MeCab configuration for Korean
-echo "Setting up MeCab configuration for Korean..."
-mkdir -p /usr/local/etc
-cat > /usr/local/etc/mecabrc << 'EOF'
+# Set up mecabrc
+cat > /usr/local/etc/mecabrc << EOF
 dicdir = /usr/local/lib/mecab/dic/mecab-ko-dic
-userdic = 
-output-format-type = wakati
-input-buffer-size = 8192
-node-format = %m\n
-bos-format = 
-eos-format = \n
-eos-format = \n
 EOF
 
-# Test MeCab installation
-echo "Testing MeCab installation..."
+# Add MeCab to PATH if needed
+ldconfig
+
+# Test MeCab
+echo "Testing MeCab version..."
 mecab --version
 
-# Test with Korean text
-echo "Testing Korean text analysis..."
-echo "안녕하세요" | mecab
+echo "Testing Korean tokenization..."
+echo "안녕하세요. 만나서 반갑습니다." | mecab
 
-echo "MeCab installation completed!" 
+echo "✅ MeCab-ko installation completed successfully!"
