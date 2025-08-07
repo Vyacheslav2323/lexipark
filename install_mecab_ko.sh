@@ -8,8 +8,47 @@ echo "Installing MeCab and Korean dictionary using package manager..."
 apt-get update
 apt-get install -y build-essential curl git autoconf automake libtool pkg-config
 
-# Install MeCab and Korean dictionary via package manager
-apt-get install -y mecab mecab-utils mecab-ko mecab-ko-dic
+# Try to install MeCab and Korean dictionary via package manager
+echo "Attempting package manager installation..."
+if apt-get install -y mecab mecab-utils mecab-ko mecab-ko-dic 2>/dev/null; then
+    echo "✅ MeCab and Korean dictionary installed via package manager"
+else
+    echo "⚠️  Package manager installation failed, trying source compilation..."
+    
+    # Install MeCab from official source
+    cd /tmp
+    wget https://github.com/taku910/mecab/archive/refs/tags/v0.996.tar.gz
+    tar -xzf v0.996.tar.gz
+    cd mecab-0.996
+    ./configure
+    make -j$(nproc)
+    make install
+
+    # Try to install Korean dictionary from package manager first
+    if apt-get install -y mecab-ko-dic 2>/dev/null; then
+        echo "✅ Korean dictionary installed via package manager"
+    else
+        echo "⚠️  Korean dictionary not available via package manager, trying alternative sources..."
+        
+        # Try alternative Korean dictionary sources
+        cd /tmp
+        
+        # Try to download from a different source
+        if wget -O mecab-ko-dic.tar.gz "https://github.com/konlpy/mecab-ko-dic/archive/refs/heads/master.tar.gz" 2>/dev/null; then
+            tar -xzf mecab-ko-dic.tar.gz
+            cd mecab-ko-dic-master
+            ./autogen.sh
+            ./configure --with-dicdir=/usr/local/lib/mecab/dic
+            make -j$(nproc)
+            make install
+        else
+            echo "❌ Could not download Korean dictionary. Please install manually:"
+            echo "   sudo apt-get install mecab-ko-dic"
+            echo "   or download from: https://bitbucket.org/eunjeon/mecab-ko-dic"
+            exit 1
+        fi
+    fi
+fi
 
 # Find the correct dictionary path
 DIC_PATH=""
