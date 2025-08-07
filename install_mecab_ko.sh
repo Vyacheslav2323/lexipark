@@ -9,20 +9,18 @@ apt-get install -y build-essential curl autoconf automake libtool pkg-config
 
 # Download and install MeCab Korean from GitHub
 cd /tmp
-curl -L -o mecab-ko.tar.gz https://codeload.github.com/konlpy/mecab-ko/tar.gz/refs/heads/master
+curl -L -o mecab-ko.tar.gz https://github.com/konlpy/mecab-ko/releases/download/v0.996/mecab-0.996.tar.gz
 tar -xzf mecab-ko.tar.gz
-cd mecab-ko-master
-./autogen.sh
+cd mecab-0.996
 ./configure
 make -j$(nproc)
 make install
 
 # Download and install MeCab Korean dictionary from GitHub
 cd /tmp
-curl -L -o mecab-ko-dic.tar.gz https://codeload.github.com/konlpy/mecab-ko-dic/tar.gz/refs/heads/master
+curl -L -o mecab-ko-dic.tar.gz https://github.com/konlpy/mecab-ko-dic/releases/download/v2.1.1-20180720/mecab-ko-dic-2.1.1-20180720.tar.gz
 tar -xzf mecab-ko-dic.tar.gz
-cd mecab-ko-dic-master
-./autogen.sh
+cd mecab-ko-dic-2.1.1-20180720
 ./configure --with-dicdir=/usr/local/lib/mecab/dic
 make -j$(nproc)
 make install
