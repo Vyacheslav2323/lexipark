@@ -20,11 +20,20 @@ def _request_papago_api(text: str) -> str:
         "text": text
     }
     
-    response = requests.post(url, headers=headers, json=data, timeout=10)
-    if response.status_code == 200:
-        result = response.json()
-        return result["message"]["result"]["translatedText"]
-    return text
+    try:
+        response = requests.post(url, headers=headers, json=data, timeout=10)
+        
+        if response.status_code == 200:
+            result = response.json()
+            translated_text = result["message"]["result"]["translatedText"]
+            return translated_text
+        else:
+            print(f"DEBUG: Papago API error - Status: {response.status_code}")
+            print(f"DEBUG: Papago API error - Response: {response.text[:200]}")
+            return text
+    except Exception as e:
+        print(f"DEBUG: Papago API exception: {e}")
+        return text
 
 def tokenize(text):
     tagger = Tagger()
@@ -106,10 +115,6 @@ def create_interactive_sentence(sentence, results, translations, vocab_words=Non
     html_parts = []
     current_pos = 0
     
-    print(f"DEBUG: Processing sentence: {sentence}")
-    print(f"DEBUG: Results count: {len(results)}")
-    print(f"DEBUG: Translations count: {len(translations)}")
-    
     for i, ((surface, base, pos, grammar_info), translation) in enumerate(zip(results, translations)):
         if base is None:
             continue
@@ -122,7 +127,6 @@ def create_interactive_sentence(sentence, results, translations, vocab_words=Non
             html_parts.append(f'<span>{sentence[current_pos:start_pos]}</span>')
         
         is_korean = any('\u3131' <= char <= '\u318E' or '\uAC00' <= char <= '\uD7A3' for char in str(base))
-        print(f"DEBUG: Word '{base}' (surface: '{surface}') is Korean: {is_korean}")
         
         if is_korean:
             css_class = 'interactive-word'
@@ -147,9 +151,7 @@ def create_interactive_sentence(sentence, results, translations, vocab_words=Non
     if current_pos < len(sentence):
         html_parts.append(f'<span>{sentence[current_pos:]}</span>')
     
-    result = ''.join(html_parts)
-    print(f"DEBUG: Final HTML length: {len(result)}")
-    return result
+    return ''.join(html_parts)
 
 def split_text_into_sentences(text):
     import re
@@ -199,25 +201,12 @@ def create_interactive_text_with_sentences(text, vocab_words=None):
     if vocab_words is None:
         vocab_words = set()
     
-    sentences = split_text_into_sentences(text)
-    html_parts = []
+    # Process the entire text as one sentence for word-level analysis
+    results = analyze_sentence(text)
+    translations = translate_results(results)
+    interactive_html = create_interactive_sentence(text, results, translations, vocab_words)
     
-    for sentence, punctuation in sentences:
-        if not sentence.strip():
-            continue
-            
-        results = analyze_sentence(sentence)
-        translations = translate_results(results)
-        sentence_html = create_interactive_sentence(sentence, results, translations, vocab_words)
-        
-        if punctuation:
-            sentence_translation = get_sentence_translation(sentence)
-            escaped_translation = sentence_translation.replace('"', '&quot;').replace("'", '&#39;')
-            html_parts.append(f'{sentence_html}<span class="sentence-punctuation" data-sentence-translation="{escaped_translation}">{punctuation}</span>')
-        else:
-            html_parts.append(sentence_html)
-    
-    return ''.join(html_parts)
+    return interactive_html
 
 def get_papago_translation(word):
     try:

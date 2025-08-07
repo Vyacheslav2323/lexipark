@@ -2,7 +2,6 @@ from django.shortcuts import render
 from django.http import JsonResponse, HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.decorators import login_required
-from django.conf import settings
 import json
 from .mecab_utils import analyze_sentence, translate_results, create_interactive_sentence, create_interactive_text_with_sentences
 from vocab.models import Vocabulary
@@ -19,32 +18,6 @@ def health_check(request):
         return HttpResponse("OK", content_type="text/plain")
     except Exception as e:
         return HttpResponse(f"Database Error: {str(e)}", content_type="text/plain", status=500)
-
-def debug_static(request):
-    """Debug endpoint to check static file configuration"""
-    import os
-    static_root = settings.STATIC_ROOT
-    static_url = settings.STATIC_URL
-    debug_info = {
-        'STATIC_ROOT': str(static_root),
-        'STATIC_URL': static_url,
-        'STATIC_ROOT_EXISTS': os.path.exists(static_root),
-        'STATICFILES_STORAGE': settings.STATICFILES_STORAGE,
-        'DEBUG': settings.DEBUG,
-    }
-    
-    # Check if specific static files exist
-    css_path = os.path.join(static_root, 'analysis', 'css', 'interactive.css')
-    js_path = os.path.join(static_root, 'analysis', 'js', 'interactive.js')
-    
-    debug_info.update({
-        'CSS_EXISTS': os.path.exists(css_path),
-        'JS_EXISTS': os.path.exists(js_path),
-        'CSS_SIZE': os.path.getsize(css_path) if os.path.exists(css_path) else 0,
-        'JS_SIZE': os.path.getsize(js_path) if os.path.exists(js_path) else 0,
-    })
-    
-    return JsonResponse(debug_info)
 
 def analyze_view(request):
     results = None
@@ -107,28 +80,10 @@ def analyze_view(request):
                     
                     interactive_html = create_interactive_text_with_sentences(text, vocab_words)
         
-        # Add debugging info to context
-        import os
-        static_root = settings.STATIC_ROOT
-        css_path = os.path.join(static_root, 'analysis', 'css', 'interactive.css')
-        js_path = os.path.join(static_root, 'analysis', 'js', 'interactive.js')
-        
-        debug_info = {
-            'STATIC_ROOT': str(static_root),
-            'STATIC_ROOT_EXISTS': os.path.exists(static_root),
-            'CSS_EXISTS': os.path.exists(css_path),
-            'JS_EXISTS': os.path.exists(js_path),
-            'CSS_SIZE': os.path.getsize(css_path) if os.path.exists(css_path) else 0,
-            'JS_SIZE': os.path.getsize(js_path) if os.path.exists(js_path) else 0,
-            'STATICFILES_STORAGE': settings.STATICFILES_STORAGE,
-            'DEBUG': settings.DEBUG,
-        }
-        
         context = {
             'results': results,
             'translations': translations,
-            'interactive_html': interactive_html,
-            'debug_info': debug_info
+            'interactive_html': interactive_html
         }
         return render(request, 'analysis/page1.html', context)
     except Exception as e:
