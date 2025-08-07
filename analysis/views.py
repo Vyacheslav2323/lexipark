@@ -26,6 +26,18 @@ def analyze_view(request):
     vocab_words = set()
     
     try:
+        # Test database connection
+        try:
+            from django.db import connection
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT 1")
+            print("Database connection working")
+        except Exception as e:
+            print(f"Database connection failed: {e}")
+            return render(request, 'analysis/page1.html', {
+                'interactive_html': f'<p class="text-danger">Database Error: {str(e)}</p>'
+            })
+        
         if request.method == 'POST':
             if request.POST.get('know_rest') == '1':
                 text = request.POST.get('textinput', '')
