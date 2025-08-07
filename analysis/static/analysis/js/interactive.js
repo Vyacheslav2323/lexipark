@@ -223,6 +223,7 @@ function handleFinishAnalysis() {
         finishBtn.disabled = false;
     });
 }
+window.handleFinishAnalysis = handleFinishAnalysis;
 
 function showSentenceTranslation(element, translation) {
     const tooltip = document.createElement('div');
