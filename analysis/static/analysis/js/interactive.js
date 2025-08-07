@@ -1,5 +1,4 @@
 
-
 let recallInteractions = [];
 let recallBatchTimeout = null;
 let hoveredWords = new Set();
