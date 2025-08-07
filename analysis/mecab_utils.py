@@ -211,12 +211,21 @@ def create_interactive_text_with_sentences(text, vocab_words=None):
     if vocab_words is None:
         vocab_words = set()
     
-    # Process the entire text as one sentence for word-level analysis
-    results = analyze_sentence(text)
-    translations = translate_results(results)
-    interactive_html = create_interactive_sentence(text, results, translations, vocab_words)
+    sentences = split_text_into_sentences(text)
+    html_parts = []
     
-    return interactive_html
+    for sentence, punctuation in sentences:
+        if sentence.strip():
+            results = analyze_sentence(sentence)
+            translations = translate_results(results)
+            sentence_html = create_interactive_sentence(sentence, results, translations, vocab_words)
+            html_parts.append(sentence_html)
+        
+        if punctuation:
+            sentence_translation = get_sentence_translation(sentence)
+            html_parts.append(f'<span class="sentence-punctuation" data-sentence-translation="{sentence_translation}">{punctuation}</span>')
+    
+    return ''.join(html_parts)
 
 def get_papago_translation(word):
     try:
