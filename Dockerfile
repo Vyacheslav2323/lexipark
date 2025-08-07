@@ -1,49 +1,53 @@
-# Use a specific version for reproducibility
+# Dockerfile
+
+# 1. Base image
 FROM python:3.11.9-slim-bookworm
 
-# Set environment variables to prevent interactive prompts during build
-ENV PYTHONDONTWRITEBYTECODE 1
-ENV PYTHONUNBUFFERED 1
+# 2. Prevent Python from writing .pyc files and buffer flushing
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
 
-# Set the working directory early
+# 3. Set working directory
 WORKDIR /app
 
-# Install system dependencies. 'curl' is needed for the MeCab installer.
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
-    curl \
-    git \
-    autoconf \
-    automake \
-    libtool \
-    pkg-config \
-    wget \
-    swig \
+# 4. Install system build dependencies
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+      build-essential \
+      curl \
+      git \
+      autoconf \
+      automake \
+      libtool \
+      pkg-config \
+      wget \
+      swig \
     && rm -rf /var/lib/apt/lists/*
 
-# --- MeCab-ko Installation (The Robust Way) ---
-# Use the official Konlpy installer script.
-# This script is maintained by the project and handles finding the correct download URLs.
-# 'curl -s ...' downloads the script, and '| bash -s' executes it.
+# 5. Pin older packaging tools to bypass the strict PEP 440 check
+RUN pip install --no-cache-dir --upgrade \
+      "pip==23.3.1" \
+      "setuptools<66" \
+      "wheel==0.42.0"
+
+# 6. Install MeCab-ko via the official Konlpy script
 RUN curl -s https://raw.githubusercontent.com/konlpy/konlpy/master/scripts/mecab.sh | bash -s
 
-# --- Python Dependencies ---
-# Copy only the requirements file first to leverage Docker cache.
+# 7. Python dependencies
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# --- Application Code ---
-# Now copy the rest of your application code
+# 8. Copy application code
 COPY . .
 
-# Collect static files
+# 9. Collect static files
 RUN python manage.py collectstatic --no-input --verbosity=2
 
-# Make startup script executable
+# 10. Make entrypoint script executable
 RUN chmod +x start.sh
 
-# Expose port
+# 11. Expose application port
 EXPOSE 8000
 
-# Run the application with migrations
+# 12. Default command
 CMD ["./start.sh"]
