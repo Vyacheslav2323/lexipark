@@ -137,7 +137,6 @@ function handleAnalyzeSubmit() {
     console.log('handleAnalyzeSubmit called');
     const btn = document.getElementById('analyze-btn');
     const spinner = document.getElementById('analyze-spinner');
-    const result = document.getElementById('analysis-result');
     const textInput = document.getElementById('textinput');
     const text = textInput.value.trim();
 
@@ -151,121 +150,32 @@ function handleAnalyzeSubmit() {
     console.log('Showing spinner and disabling button');
     spinner.style.display = 'inline-block';
     btn.disabled = true;
-    result.innerHTML = '';
 
-    // Clear any existing interactive results
-    const existingResults = document.querySelector('.card-body .mt-4');
-    if (existingResults) {
-        existingResults.remove();
+    // Submit the form traditionally
+    const form = document.getElementById('analyze-form');
+    const formData = new FormData(form);
+    formData.append('know_rest', '1'); // Add the know_rest parameter
+    
+    // Create a hidden input for know_rest if it doesn't exist
+    let knowRestInput = form.querySelector('input[name="know_rest"]');
+    if (!knowRestInput) {
+        knowRestInput = document.createElement('input');
+        knowRestInput.type = 'hidden';
+        knowRestInput.name = 'know_rest';
+        knowRestInput.value = '1';
+        form.appendChild(knowRestInput);
+    } else {
+        knowRestInput.value = '1';
     }
 
-    console.log('Making AJAX request to /analysis/analyze-ajax/');
-    fetch('/analysis/analyze-ajax/', {
-        method: 'POST',
-        headers: {
-            'X-CSRFToken': getCookie('csrftoken'),
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ text: text })
-    })
-    .then(res => {
-        console.log('Response received:', res.status);
-        if (!res.ok) throw new Error(res.statusText);
-        return res.json();
-    })
-    .then(data => {
-        console.log('Data received:', data);
-        if (data.success) {
-            result.innerHTML = `
-                <div class="mt-4">
-                    <label class="form-label">
-                        <i class="fas fa-list me-1"></i>Interactive Analysis Results
-                    </label>
-                    <div class="border rounded p-3 bg-light">
-                        <p class="mb-0" style="font-size: 18px; line-height: 1.6;">
-                            ${data.interactive_html}
-                        </p>
-                    </div>
-                    <small class="text-muted mt-2 d-block">
-                        <i class="fas fa-info-circle me-1"></i>Hover over Korean words to see translations
-                    </small>
-                    <button id="finish-analysis-btn" class="btn btn-success mt-3 w-100" data-text="${text}">
-                        <i class="fas fa-check me-2"></i>Finish analysis
-                        <div id="finish-spinner" class="spinner"></div>
-                    </button>
-                </div>
-            `;
-            
-            const newFinishBtn = document.getElementById('finish-analysis-btn');
-            if (newFinishBtn) {
-                newFinishBtn.addEventListener('click', function(e) {
-                    e.preventDefault();
-                    handleFinishAnalysis();
-                });
-            }
-            
-            showNotification('Analysis completed!', 'success');
-        } else {
-            result.innerHTML = `<div class="alert alert-danger mt-3">${data.error}</div>`;
-            showNotification('Analysis failed: ' + data.error, 'error');
-        }
-    })
-    .catch(err => {
-        console.error('Error in AJAX request:', err);
-        result.innerHTML = '<div class="alert alert-danger mt-3">Error running analysis.</div>';
-        showNotification('Error running analysis', 'error');
-    })
-    .finally(() => {
-        console.log('Hiding spinner and re-enabling button');
-        spinner.style.display = 'none';
-        btn.disabled = false;
-    });
+    // Submit the form
+    form.submit();
 }
 
 function handleFinishAnalysis() {
-    const btn = document.getElementById('finish-analysis-btn');
-    const spinner = document.getElementById('finish-spinner');
-    const text = btn.getAttribute('data-text');
-
-    if (!text) {
-        showNotification('No text to finish analysis', 'error');
-        return;
-    }
-
-    spinner.style.display = 'inline-block';
-    btn.disabled = true;
-
-    fetch('/analysis/finish-analysis-ajax/', {
-        method: 'POST',
-        headers: {
-            'X-CSRFToken': getCookie('csrftoken'),
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ text: text })
-    })
-    .then(res => {
-        if (!res.ok) throw new Error(res.statusText);
-        return res.json();
-    })
-    .then(data => {
-        if (data.success) {
-            showNotification(data.message, 'success');
-            btn.innerHTML = '<i class="fas fa-check me-2"></i>Analysis completed';
-            btn.classList.remove('btn-success');
-            btn.classList.add('btn-secondary');
-            btn.disabled = true;
-        } else {
-            showNotification('Finish analysis failed: ' + data.error, 'error');
-        }
-    })
-    .catch(err => {
-        console.error(err);
-        showNotification('Error finishing analysis', 'error');
-    })
-    .finally(() => {
-        spinner.style.display = 'none';
-        btn.disabled = false;
-    });
+    // This function is no longer needed since we're using traditional form submission
+    // The analysis is completed when the form is submitted
+    showNotification('Analysis completed!', 'success');
 }
 
 function showSentenceTranslation(element, translation) {
