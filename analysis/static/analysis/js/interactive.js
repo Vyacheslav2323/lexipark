@@ -156,9 +156,46 @@ function handleAnalyzeSubmit() {
 }
 
 function handleFinishAnalysis() {
-    // This function is no longer needed since we're using traditional form submission
-    // The analysis is completed when the form is submitted
-    showNotification('Analysis completed!', 'success');
+    const finishBtn = document.getElementById('finish-analysis-btn');
+    const spinner = document.getElementById('finish-spinner');
+    const text = finishBtn.getAttribute('data-text');
+    
+    if (!text) {
+        showNotification('No text to finish analysis for', 'error');
+        return;
+    }
+    
+    spinner.style.display = 'inline-block';
+    finishBtn.disabled = true;
+    
+    fetch('/analysis/finish-analysis/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest',
+        },
+        body: JSON.stringify({
+            text: text,
+            hovered_words: Array.from(hoveredWords)
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showNotification(data.message, 'success');
+            isAnalysisFinished = true;
+        } else {
+            showNotification('Error finishing analysis: ' + data.message, 'error');
+        }
+    })
+    .catch(error => {
+        console.error('Network error:', error);
+        showNotification('Network error while finishing analysis', 'error');
+    })
+    .finally(() => {
+        spinner.style.display = 'none';
+        finishBtn.disabled = false;
+    });
 }
 
 function showSentenceTranslation(element, translation) {
