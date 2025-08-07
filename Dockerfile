@@ -22,10 +22,15 @@ RUN pip install --no-cache-dir \
 
 # ── 2b. Tell MeCab where that dictionary lives (FIX) ─────────────────────────
 RUN set -e && \
-    DICDIR=$(python -c "import mecab_ko_dic, os, sys; sys.stdout.write(os.path.dirname(mecab_ko_dic.dictionary_path))") && \
-    mkdir -p /usr/local/etc /usr/local/lib/mecab/dic && \
-    echo \"dicdir = ${DICDIR}\" > /usr/local/etc/mecabrc && \
-    ln -s \"${DICDIR}\" /usr/local/lib/mecab/dic/mecab-ko-dic || true
+    DICDIR=$(python -c 'import mecab_ko_dic, os, sys; sys.stdout.write(os.path.dirname(mecab_ko_dic.dictionary_path))') && \
+    for CFG in /usr/local/etc/mecabrc /etc/mecabrc; do \
+        mkdir -p "$(dirname $CFG)" && \
+        echo "dicdir = ${DICDIR}" > "$CFG"; \
+    done && \
+    mkdir -p /usr/local/lib/mecab/dic && \
+    ln -sf "${DICDIR}" /usr/local/lib/mecab/dic/mecab-ko-dic
+
+ENV MECABRC=/usr/local/etc/mecabrc
 
 # (optional) leave this ENV—harmless if mecabrc is present
 ENV MECAB_ARGS="-d /usr/local/lib/mecab/dic/mecab-ko-dic"
