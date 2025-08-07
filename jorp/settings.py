@@ -85,27 +85,30 @@ WSGI_APPLICATION = 'jorp.wsgi.application'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
 # Use PostgreSQL in production, SQLite in development
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
+    }
+}
+
+# Try to use PostgreSQL if DATABASE_URL is available
 if os.getenv('DATABASE_URL'):
     try:
         import dj_database_url
-        DATABASES = {
-            'default': dj_database_url.parse(os.getenv('DATABASE_URL'))
-        }
-    except ImportError:
-        # Fallback to SQLite if dj-database-url is not available
-        DATABASES = {
-            'default': {
-                'ENGINE': 'django.db.backends.sqlite3',
-                'NAME': BASE_DIR / 'db.sqlite3',
-            }
-        }
+        postgres_config = dj_database_url.parse(os.getenv('DATABASE_URL'))
+        # Test the connection before using it
+        from django.db import connection
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT 1")
+        DATABASES['default'] = postgres_config
+        print("Using PostgreSQL database")
+    except Exception as e:
+        print(f"PostgreSQL connection failed: {e}")
+        print("Falling back to SQLite database")
+        # Keep the SQLite configuration
 else:
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.sqlite3',
-            'NAME': BASE_DIR / 'db.sqlite3',
-        }
-    }
+    print("No DATABASE_URL found, using SQLite database")
 
 
 # Password validation
