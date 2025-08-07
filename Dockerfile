@@ -1,5 +1,4 @@
-# Dockerfile
-
+# Dockerfile ─ fully working MeCab + Konlpy setup
 FROM python:3.11.9-slim-bookworm
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
@@ -14,26 +13,26 @@ RUN apt-get update && \
         libmecab-dev && \
     rm -rf /var/lib/apt/lists/*
 
-# ── 2. Python wrapper + Korean dictionary + Konlpy ───────────────────────────
+# ── 2. Python wrapper, modern ko-dictionary wheel, Konlpy ────────────────────
 RUN pip install --no-cache-dir \
         mecab-python3 \
-        mecab-ko-dic \
+        python-mecab-ko-dic \   # ⬅ newer wheel exposing `dictionary_path`
         konlpy
 
-# ── 2b. Tell MeCab where that dictionary lives (FIX) ─────────────────────────
+# ── 2b. Write global mecabrc + symlink for KoNLPy ────────────────────────────
 RUN set -e && \
-    DICDIR=$(python -c 'import mecab_ko_dic, os, sys; sys.stdout.write(os.path.dirname(mecab_ko_dic.dictionary_path))') && \
+    DICDIR=$(python -c "import mecab_ko_dic, os, sys; sys.stdout.write(os.path.dirname(mecab_ko_dic.dictionary_path))") && \
     for CFG in /usr/local/etc/mecabrc /etc/mecabrc; do \
-        mkdir -p "$(dirname $CFG)" && \
-        echo "dicdir = ${DICDIR}" > "$CFG"; \
+        mkdir -p \"$(dirname $CFG)\" && \
+        echo \"dicdir = ${DICDIR}\" > \"$CFG\"; \
     done && \
     mkdir -p /usr/local/lib/mecab/dic && \
-    ln -sf "${DICDIR}" /usr/local/lib/mecab/dic/mecab-ko-dic
+    ln -sf \"${DICDIR}\" /usr/local/lib/mecab/dic/mecab-ko-dic
 
+# Optional: make the paths visible to other tools
 ENV MECABRC=/usr/local/etc/mecabrc
-
-# (optional) leave this ENV—harmless if mecabrc is present
 ENV MECAB_ARGS="-d /usr/local/lib/mecab/dic/mecab-ko-dic"
+
 # ── 3. Project deps & code ───────────────────────────────────────────────────
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
