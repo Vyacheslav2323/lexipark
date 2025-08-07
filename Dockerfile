@@ -1,4 +1,4 @@
-# Dockerfile  (script-based MeCab install)
+# Dockerfile
 
 FROM python:3.11.9-slim-bookworm
 
@@ -7,26 +7,26 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-# ── OS build deps ──────────────────────────────────────────────────────────────
+# ── 1. Lightweight MeCab runtime ─────────────────────────────────────────────
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-        build-essential curl git autoconf automake libtool \
-        pkg-config wget swig && \
+        mecab \
+        libmecab-dev && \
     rm -rf /var/lib/apt/lists/*
 
-# ── Pin the packaging toolchain *before* running the installer ────────────────
-RUN pip install --no-cache-dir --upgrade \
-        "pip==23.3.1" \
-        "setuptools==65.5.1" \
-        "wheel==0.42.0"
+# ── 2. Python wrapper + Korean dictionary + Konlpy ───────────────────────────
+# mecab-python3   → C-extension with wheels for Linux
+# mecab-ko-dic    → packaged Eunjeon ko-dictionary
+# konlpy          → NLP wrapper we actually call in the app
+RUN pip install --no-cache-dir \
+        mecab-python3 \
+        mecab-ko-dic \
+        konlpy
 
-# Tell pip *not* to spin up an isolated (new) build env
-ENV PIP_NO_BUILD_ISOLATION=1
+# Tell Konlpy where the dictionary was installed
+ENV MECAB_ARGS="-d $(python - <<'PY'\nimport mecab_ko_dic, os; print(os.path.dirname(mecab_ko_dic.dictionary_path))\nPY)"
 
-# ── Konlpy’s MeCab-ko installer (now succeeds) ────────────────────────────────
-RUN curl -s https://raw.githubusercontent.com/konlpy/konlpy/master/scripts/mecab.sh | bash -s
-
-# ── Python deps & app code ─────────────────────────────────────────────────────
+# ── 3. Project deps & code ───────────────────────────────────────────────────
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
