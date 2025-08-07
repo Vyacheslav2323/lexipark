@@ -70,10 +70,8 @@ def analyze_sentence(sentence):
     try:
         tagger = Tagger()
         parsed = tagger.parse(sentence)
-        print(f"PRODUCTION DEBUG: MeCab parsed result: {parsed}")
         
         if parsed is None:
-            print("PRODUCTION DEBUG: MeCab returned None")
             return []
             
         results = []
@@ -87,10 +85,8 @@ def analyze_sentence(sentence):
             grammar_info = ','.join(features[1:]) if len(features) > 1 else ''
             results.append((surface, result, pos, grammar_info))
         
-        print(f"PRODUCTION DEBUG: MeCab analysis results: {results}")
         return results
     except Exception as e:
-        print(f"PRODUCTION DEBUG: MeCab error: {e}")
         return []
 
 def translate_results(results):
@@ -138,10 +134,11 @@ def create_interactive_sentence(sentence, results, translations, vocab_words=Non
         if start_pos > current_pos:
             html_parts.append(f'<span>{sentence[current_pos:start_pos]}</span>')
         
-        # Check if the surface text contains Korean characters, regardless of POS tags
-        is_korean = any('\uAC00' <= char <= '\uD7A3' for char in str(surface))
+        # Only make specific POS tags interactive (nouns, adverbs, verbs)
+        is_interactive = (pos in ['NNG', 'NNP', 'NP', 'NR', 'MAG', 'MAJ', 'MM'] or 
+                         'VV' in pos or 'VA' in pos or 'VX' in pos)
         
-        if is_korean:
+        if is_interactive:
             css_class = 'interactive-word'
             if base in vocab_words:
                 try:
