@@ -68,15 +68,16 @@ document.addEventListener('DOMContentLoaded', function() {
 
     const analyzeForm = document.getElementById('analyze-form');
     const analyzeBtn = document.getElementById('analyze-btn');
-    if (analyzeBtn) {
-        console.log('Found analyze button, adding click event listener');
-        analyzeBtn.addEventListener('click', function(e) {
-            console.log('Analyze button clicked');
-            e.preventDefault();
-            handleAnalyzeSubmit();
+    if (analyzeForm) {
+        console.log('Found analyze form, adding submit event listener');
+        analyzeForm.addEventListener('submit', function(e) {
+            console.log('Analyze form submitted');
+            if (!handleAnalyzeSubmit()) {
+                e.preventDefault();
+            }
         });
     } else {
-        console.log('Analyze button not found');
+        console.log('Analyze form not found');
     }
 
     const finishAnalysisBtn = document.getElementById('finish-analysis-btn');
@@ -144,32 +145,14 @@ function handleAnalyzeSubmit() {
 
     if (!text) {
         showNotification('Please enter text to analyze', 'error');
-        return;
+        return false; // Prevent form submission
     }
 
     console.log('Showing spinner and disabling button');
     spinner.style.display = 'inline-block';
     btn.disabled = true;
-
-    // Submit the form traditionally
-    const form = document.getElementById('analyze-form');
-    const formData = new FormData(form);
-    formData.append('know_rest', '1'); // Add the know_rest parameter
     
-    // Create a hidden input for know_rest if it doesn't exist
-    let knowRestInput = form.querySelector('input[name="know_rest"]');
-    if (!knowRestInput) {
-        knowRestInput = document.createElement('input');
-        knowRestInput.type = 'hidden';
-        knowRestInput.name = 'know_rest';
-        knowRestInput.value = '1';
-        form.appendChild(knowRestInput);
-    } else {
-        knowRestInput.value = '1';
-    }
-
-    // Submit the form
-    form.submit();
+    return true; // Allow form submission
 }
 
 function handleFinishAnalysis() {
