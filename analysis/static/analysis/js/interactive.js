@@ -1,3 +1,5 @@
+console.log('Interactive.js loaded successfully');
+
 let recallInteractions = [];
 let recallBatchTimeout = null;
 let hoveredWords = new Set();
@@ -5,6 +7,7 @@ let displayedVocabWords = new Set();
 let isAnalysisFinished = false;
 
 document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOM loaded, setting up interactive words');
     document.querySelectorAll('.interactive-word[data-original]').forEach(function(word) {
         const original = word.getAttribute('data-original');
         if (word.classList.contains('in-vocab') || word.style.backgroundColor) {

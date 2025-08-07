@@ -24,8 +24,11 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy project files
 COPY . .
 
-# Collect static files
-RUN python manage.py collectstatic --no-input
+# Collect static files during build
+RUN python manage.py collectstatic --no-input --verbosity=2
+
+# List static files for debugging
+RUN ls -la staticfiles/analysis/css/ && ls -la staticfiles/analysis/js/
 
 # Make startup script executable
 RUN chmod +x start.sh
