@@ -29,16 +29,10 @@ def analyze_view(request):
         if request.method == 'POST':
             if request.POST.get('know_rest') == '1':
                 text = request.POST.get('textinput', '')
-                print(f"PRODUCTION DEBUG: Processing text: {text}")
                 
                 results = analyze_sentence(text)
-                print(f"PRODUCTION DEBUG: Analysis results: {results}")
-                
                 translations = translate_results(results)
-                print(f"PRODUCTION DEBUG: Translations: {translations}")
-                
                 words = [r[0] for r in results if r[0] is not None and any('\uAC00' <= char <= '\uD7A3' for char in str(r[0]))]
-                print(f"PRODUCTION DEBUG: Korean words found: {words}")
                 
                 user_vocab = set(Vocabulary.objects.filter(user=request.user).values_list('korean_word', flat=True))
                 new_words = [w for w in words if w not in user_vocab]
@@ -80,8 +74,6 @@ def analyze_view(request):
                 
                 vocab_words = set(Vocabulary.objects.filter(user=request.user).values_list('korean_word', flat=True))
                 interactive_html = create_interactive_text_with_sentences(text, vocab_words)
-                print(f"PRODUCTION DEBUG: Interactive HTML length: {len(interactive_html) if interactive_html else 0}")
-                print(f"PRODUCTION DEBUG: Interactive HTML preview: {interactive_html[:200] if interactive_html else 'None'}")
             else:
                 text = request.POST.get('textinput', '')
                 if text.strip():

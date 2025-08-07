@@ -5,25 +5,16 @@ echo "Installing MeCab with Korean support..."
 
 # Install dependencies
 apt-get update
-apt-get install -y build-essential curl git
+apt-get install -y build-essential curl
 
-# Install basic MeCab
-apt-get install -y mecab mecab-utils
+# Install basic MeCab with Japanese dictionary (we'll use this for now)
+apt-get install -y mecab mecab-utils mecab-ipadic-utf8
 
-# Install Korean MeCab dictionary
-echo "Installing Korean MeCab dictionary..."
-cd /tmp
-git clone https://github.com/konlpy/mecab-ko-dic.git
-cd mecab-ko-dic
-./configure
-make
-make install
-
-# Setup MeCab configuration for Korean
-echo "Setting up MeCab configuration for Korean..."
+# Setup MeCab configuration
+echo "Setting up MeCab configuration..."
 mkdir -p /usr/local/etc
 cat > /usr/local/etc/mecabrc << 'EOF'
-dicdir = /usr/local/lib/mecab/dic/mecab-ko-dic
+dicdir = /usr/lib/x86_64-linux-gnu/mecab/dic/ipadic
 userdic = 
 output-format-type = wakati
 input-buffer-size = 8192
