@@ -5,21 +5,16 @@ echo "Installing MeCab with Korean support..."
 
 # Install dependencies
 apt-get update
-apt-get install -y build-essential curl wget
+apt-get install -y build-essential curl git
 
 # Install basic MeCab
 apt-get install -y mecab mecab-utils
 
-# Download and install Korean dictionary from a pre-built source
+# Install Korean MeCab dictionary using git clone with depth 1
 echo "Installing Korean MeCab dictionary..."
 cd /tmp
-
-# Download pre-built Korean dictionary
-wget https://github.com/konlpy/mecab-ko-dic/releases/download/v2.1.1-20180720/mecab-ko-dic-2.1.1-20180720.tar.gz
-
-# Extract and install
-tar -xzf mecab-ko-dic-2.1.1-20180720.tar.gz
-cd mecab-ko-dic-2.1.1-20180720
+git clone --depth 1 https://github.com/konlpy/mecab-ko-dic.git
+cd mecab-ko-dic
 ./configure
 make
 make install
