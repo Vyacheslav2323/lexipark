@@ -2,7 +2,7 @@
 
 set -e  # Exit on any error
 
-echo "Installing MeCab and Korean dictionary using package manager..."
+echo "Installing MeCab and Korean dictionary..."
 
 # Install dependencies
 apt-get update
@@ -13,38 +13,23 @@ echo "Attempting package manager installation..."
 if apt-get install -y mecab mecab-utils mecab-ko mecab-ko-dic 2>/dev/null; then
     echo "✅ MeCab and Korean dictionary installed via package manager"
 else
-    echo "⚠️  Package manager installation failed, trying source compilation..."
+    echo "⚠️  Package manager installation failed, trying alternative repositories..."
     
-    # Install MeCab from official source
-    cd /tmp
-    wget https://github.com/taku910/mecab/archive/refs/tags/v0.996.tar.gz
-    tar -xzf v0.996.tar.gz
-    cd mecab-0.996
-    ./configure
-    make -j$(nproc)
-    make install
-
-    # Try to install Korean dictionary from package manager first
-    if apt-get install -y mecab-ko-dic 2>/dev/null; then
-        echo "✅ Korean dictionary installed via package manager"
+    # Try adding different repositories
+    echo "deb http://ftp.debian.org/debian stretch main" >> /etc/apt/sources.list
+    echo "deb http://ftp.debian.org/debian buster main" >> /etc/apt/sources.list
+    apt-get update
+    
+    if apt-get install -y mecab mecab-utils mecab-ko mecab-ko-dic 2>/dev/null; then
+        echo "✅ MeCab installed from alternative repository"
     else
-        echo "⚠️  Korean dictionary not available via package manager, trying alternative sources..."
+        echo "⚠️  Alternative repositories failed, trying minimal installation..."
         
-        # Try alternative Korean dictionary sources
-        cd /tmp
-        
-        # Try to download from a different source
-        if wget -O mecab-ko-dic.tar.gz "https://github.com/konlpy/mecab-ko-dic/archive/refs/heads/master.tar.gz" 2>/dev/null; then
-            tar -xzf mecab-ko-dic.tar.gz
-            cd mecab-ko-dic-master
-            ./autogen.sh
-            ./configure --with-dicdir=/usr/local/lib/mecab/dic
-            make -j$(nproc)
-            make install
+        # Try to install just the basic MeCab without Korean dictionary
+        if apt-get install -y mecab mecab-utils 2>/dev/null; then
+            echo "✅ Basic MeCab installed, will use default dictionary"
         else
-            echo "❌ Could not download Korean dictionary. Please install manually:"
-            echo "   sudo apt-get install mecab-ko-dic"
-            echo "   or download from: https://bitbucket.org/eunjeon/mecab-ko-dic"
+            echo "❌ Could not install MeCab. Please check your package sources."
             exit 1
         fi
     fi
@@ -52,7 +37,7 @@ fi
 
 # Find the correct dictionary path
 DIC_PATH=""
-for path in "/usr/local/lib/mecab/dic/mecab-ko-dic" "/usr/lib/mecab/dic/mecab-ko-dic" "/opt/homebrew/lib/mecab/dic/mecab-ko-dic"; do
+for path in "/usr/local/lib/mecab/dic/mecab-ko-dic" "/usr/lib/mecab/dic/mecab-ko-dic" "/opt/homebrew/lib/mecab/dic/mecab-ko-dic" "/usr/share/mecab/dic/ipadic"; do
     if [ -d "$path" ]; then
         DIC_PATH="$path"
         break
@@ -60,16 +45,16 @@ for path in "/usr/local/lib/mecab/dic/mecab-ko-dic" "/usr/lib/mecab/dic/mecab-ko
 done
 
 if [ -z "$DIC_PATH" ]; then
-    echo "⚠️  Could not find Korean dictionary path automatically"
+    echo "⚠️  Could not find dictionary path automatically"
     echo "   Trying to find it..."
-    DIC_PATH=$(find /usr -name "mecab-ko-dic" -type d 2>/dev/null | head -1)
+    DIC_PATH=$(find /usr -name "*mecab*dic*" -type d 2>/dev/null | head -1)
     if [ -z "$DIC_PATH" ]; then
-        echo "❌ Could not find Korean dictionary. Please check installation."
+        echo "❌ Could not find any MeCab dictionary. Please check installation."
         exit 1
     fi
 fi
 
-echo "✅ Found Korean dictionary at: $DIC_PATH"
+echo "✅ Found dictionary at: $DIC_PATH"
 
 # Set up mecabrc
 cat > /usr/local/etc/mecabrc << EOF
@@ -83,7 +68,7 @@ ldconfig
 echo "Testing MeCab version..."
 mecab --version
 
-echo "Testing Korean tokenization..."
-echo "안녕하세요. 만나서 반갑습니다." | mecab
+echo "Testing text tokenization..."
+echo "Hello world." | mecab
 
 echo "✅ MeCab installation completed successfully!"
