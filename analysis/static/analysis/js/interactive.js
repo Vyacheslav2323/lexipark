@@ -6,6 +6,11 @@ let hoveredWords = new Set();
 let displayedVocabWords = new Set();
 let isAnalysisFinished = false;
 
+function getCookie(name) {
+  let v = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
+  return v ? v.pop() : '';
+}
+
 document.addEventListener('DOMContentLoaded', function() {
     console.log('DOM loaded, setting up interactive words');
     document.querySelectorAll('.interactive-word[data-original]').forEach(function(word) {
@@ -61,10 +66,24 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    const finishAnalysisForm = document.getElementById('finish-analysis-form');
-    if (finishAnalysisForm) {
-        finishAnalysisForm.addEventListener('submit', function(e) {
-            finishAnalysis();
+    const analyzeForm = document.getElementById('analyze-form');
+    const analyzeBtn = document.getElementById('analyze-btn');
+    if (analyzeBtn) {
+        console.log('Found analyze button, adding click event listener');
+        analyzeBtn.addEventListener('click', function(e) {
+            console.log('Analyze button clicked');
+            e.preventDefault();
+            handleAnalyzeSubmit();
+        });
+    } else {
+        console.log('Analyze button not found');
+    }
+
+    const finishAnalysisBtn = document.getElementById('finish-analysis-btn');
+    if (finishAnalysisBtn) {
+        finishAnalysisBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            handleFinishAnalysis();
         });
     }
     
@@ -113,6 +132,141 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 });
+
+function handleAnalyzeSubmit() {
+    console.log('handleAnalyzeSubmit called');
+    const btn = document.getElementById('analyze-btn');
+    const spinner = document.getElementById('analyze-spinner');
+    const result = document.getElementById('analysis-result');
+    const textInput = document.getElementById('textinput');
+    const text = textInput.value.trim();
+
+    console.log('Text input:', text);
+
+    if (!text) {
+        showNotification('Please enter text to analyze', 'error');
+        return;
+    }
+
+    console.log('Showing spinner and disabling button');
+    spinner.style.display = 'inline-block';
+    btn.disabled = true;
+    result.innerHTML = '';
+
+    // Clear any existing interactive results
+    const existingResults = document.querySelector('.card-body .mt-4');
+    if (existingResults) {
+        existingResults.remove();
+    }
+
+    console.log('Making AJAX request to /analysis/analyze-ajax/');
+    fetch('/analysis/analyze-ajax/', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ text: text })
+    })
+    .then(res => {
+        console.log('Response received:', res.status);
+        if (!res.ok) throw new Error(res.statusText);
+        return res.json();
+    })
+    .then(data => {
+        console.log('Data received:', data);
+        if (data.success) {
+            result.innerHTML = `
+                <div class="mt-4">
+                    <label class="form-label">
+                        <i class="fas fa-list me-1"></i>Interactive Analysis Results
+                    </label>
+                    <div class="border rounded p-3 bg-light">
+                        <p class="mb-0" style="font-size: 18px; line-height: 1.6;">
+                            ${data.interactive_html}
+                        </p>
+                    </div>
+                    <small class="text-muted mt-2 d-block">
+                        <i class="fas fa-info-circle me-1"></i>Hover over Korean words to see translations
+                    </small>
+                    <button id="finish-analysis-btn" class="btn btn-success mt-3 w-100" data-text="${text}">
+                        <i class="fas fa-check me-2"></i>Finish analysis
+                        <div id="finish-spinner" class="spinner"></div>
+                    </button>
+                </div>
+            `;
+            
+            const newFinishBtn = document.getElementById('finish-analysis-btn');
+            if (newFinishBtn) {
+                newFinishBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    handleFinishAnalysis();
+                });
+            }
+            
+            showNotification('Analysis completed!', 'success');
+        } else {
+            result.innerHTML = `<div class="alert alert-danger mt-3">${data.error}</div>`;
+            showNotification('Analysis failed: ' + data.error, 'error');
+        }
+    })
+    .catch(err => {
+        console.error('Error in AJAX request:', err);
+        result.innerHTML = '<div class="alert alert-danger mt-3">Error running analysis.</div>';
+        showNotification('Error running analysis', 'error');
+    })
+    .finally(() => {
+        console.log('Hiding spinner and re-enabling button');
+        spinner.style.display = 'none';
+        btn.disabled = false;
+    });
+}
+
+function handleFinishAnalysis() {
+    const btn = document.getElementById('finish-analysis-btn');
+    const spinner = document.getElementById('finish-spinner');
+    const text = btn.getAttribute('data-text');
+
+    if (!text) {
+        showNotification('No text to finish analysis', 'error');
+        return;
+    }
+
+    spinner.style.display = 'inline-block';
+    btn.disabled = true;
+
+    fetch('/analysis/finish-analysis-ajax/', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken'),
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ text: text })
+    })
+    .then(res => {
+        if (!res.ok) throw new Error(res.statusText);
+        return res.json();
+    })
+    .then(data => {
+        if (data.success) {
+            showNotification(data.message, 'success');
+            btn.innerHTML = '<i class="fas fa-check me-2"></i>Analysis completed';
+            btn.classList.remove('btn-success');
+            btn.classList.add('btn-secondary');
+            btn.disabled = true;
+        } else {
+            showNotification('Finish analysis failed: ' + data.error, 'error');
+        }
+    })
+    .catch(err => {
+        console.error(err);
+        showNotification('Error finishing analysis', 'error');
+    })
+    .finally(() => {
+        spinner.style.display = 'none';
+        btn.disabled = false;
+    });
+}
 
 function showSentenceTranslation(element, translation) {
     const tooltip = document.createElement('div');
@@ -175,13 +329,13 @@ function trackSentenceHoverDuration(punctuation, duration) {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            console.log('Sentence hover tracked:', data);
+            console.log('Sentence hover tracked:', data.message);
         } else {
             console.error('Error tracking sentence hover:', data.error);
         }
     })
     .catch(error => {
-        console.error('Network error tracking sentence hover:', error);
+        console.error('Network error in sentence hover tracking:', error);
     });
 }
 
@@ -200,17 +354,54 @@ function trackHoverDuration(koreanWord, duration) {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            if (data.message) {
-                console.log('Hover tracked (word not in vocab):', data.message);
-            } else {
-                console.log('Hover tracked:', data);
-            }
+            console.log('Hover tracked for:', koreanWord, 'duration:', duration, 'ms');
         } else {
             console.error('Error tracking hover:', data.error);
         }
     })
     .catch(error => {
-        console.error('Network error tracking hover:', error);
+        console.error('Network error in hover tracking:', error);
+    });
+}
+
+function addRecallInteraction(koreanWord, hadLookup) {
+    recallInteractions.push([koreanWord, hadLookup]);
+    
+    if (recallBatchTimeout) {
+        clearTimeout(recallBatchTimeout);
+    }
+    
+    recallBatchTimeout = setTimeout(() => {
+        sendBatchRecallUpdates();
+    }, 1000);
+}
+
+function sendBatchRecallUpdates() {
+    if (recallInteractions.length === 0) return;
+    
+    const interactions = [...recallInteractions];
+    recallInteractions = [];
+    
+    fetch('/analysis/batch-update-recalls/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest',
+        },
+        body: JSON.stringify({
+            interactions: interactions
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            console.log(`Batch updated ${data.updated_count} recall rates`);
+        } else {
+            console.error('Error in batch recall update:', data.error);
+        }
+    })
+    .catch(error => {
+        console.error('Network error in batch recall update:', error);
     });
 }
 
@@ -245,45 +436,6 @@ function saveToVocabulary(koreanWord, pos, grammarInfo, translation) {
     .catch(error => {
         console.error('Network error:', error);
         showNotification('Network error while saving word', 'error');
-    });
-}
-
-function addRecallInteraction(koreanWord, hadLookup) {
-    recallInteractions.push([koreanWord, hadLookup]);
-    
-    if (recallBatchTimeout) {
-        clearTimeout(recallBatchTimeout);
-    }
-    
-    recallBatchTimeout = setTimeout(sendBatchRecallUpdates, 2000);
-}
-
-function sendBatchRecallUpdates() {
-    if (recallInteractions.length === 0) return;
-    
-    const interactions = [...recallInteractions];
-    recallInteractions = [];
-    
-    fetch('/analysis/batch-update-recalls/', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-Requested-With': 'XMLHttpRequest',
-        },
-        body: JSON.stringify({
-            interactions: interactions
-        })
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            console.log(`Batch updated ${data.updated_count} recall rates`);
-        } else {
-            console.error('Error in batch recall update:', data.error);
-        }
-    })
-    .catch(error => {
-        console.error('Network error in batch recall update:', error);
     });
 }
 
