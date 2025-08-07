@@ -96,12 +96,7 @@ DATABASES = {
 if os.getenv('DATABASE_URL'):
     try:
         import dj_database_url
-        postgres_config = dj_database_url.parse(os.getenv('DATABASE_URL'))
-        # Test the connection before using it
-        from django.db import connection
-        with connection.cursor() as cursor:
-            cursor.execute("SELECT 1")
-        DATABASES['default'] = postgres_config
+        DATABASES['default'] = dj_database_url.parse(os.getenv('DATABASE_URL'))
         print("Using PostgreSQL database")
     except Exception as e:
         print(f"PostgreSQL connection failed: {e}")

@@ -1,5 +1,9 @@
 from django.urls import path
+<<<<<<< Updated upstream
 from .views import analyze_view, track_hover, track_sentence_hover, batch_update_recalls_view, analyze_ajax, finish_analysis_ajax
+=======
+from .views import analyze_view, track_hover, track_sentence_hover, batch_update_recalls_view, health_check
+>>>>>>> Stashed changes
 
 urlpatterns = [
     path('page1/', analyze_view, name='analyze'),
@@ -8,4 +12,5 @@ urlpatterns = [
     path('track-hover/', track_hover, name='track_hover'),
     path('track-sentence-hover/', track_sentence_hover, name='track_sentence_hover'),
     path('batch-update-recalls/', batch_update_recalls_view, name='batch_update_recalls'),
+    path('health/', health_check, name='health_check'),
 ] 
