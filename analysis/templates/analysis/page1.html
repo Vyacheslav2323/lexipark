@@ -22,7 +22,7 @@
   <nav class="navbar navbar-expand-lg navbar-light bg-light shadow-sm">
     <div class="container">
       <a class="navbar-brand fw-bold" href="{% url 'analyze' %}">
-        <i class="fas fa-home me-2"></i>Jorp
+        <i class="fas fa-home me-2"></i>LexiPark
       </a>
                   <div class="navbar-nav ms-auto">
                 <a class="nav-link" href="{% url 'users:profile' %}">
@@ -50,10 +50,26 @@
     <div class="row justify-content-center">
       <div class="col-md-10 col-lg-8">
         <div class="card shadow">
-          <div class="card-header bg-primary text-white text-center">
+          <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
             <h4 class="mb-0"><i class="fas fa-search me-2"></i>Text Analysis</h4>
+            <a class="text-white text-decoration-underline small" data-bs-toggle="collapse" href="#quickGuide" role="button" aria-expanded="false" aria-controls="quickGuide">How it works</a>
           </div>
           <div class="card-body p-4">
+            <div class="collapse" id="quickGuide">
+              <div class="p-3 border-bottom bg-light">
+                <ul class="mb-0">
+                  <li>Use on PC for best experience</li>
+                  <li>Type or paste Korean text, then Analyze</li>
+                  <li>Hover words to see translations; click to save to vocabulary</li>
+                  <li>Click Finish analysis to add remaining words and update recalls</li>
+                  <li>Use My Vocabulary to review saved words</li>
+                </ul>
+              </div>
+            </div>
+            <div id="intro-banner" class="alert alert-info alert-dismissible fade show mb-3" role="alert">
+              Learn Korean efficiently, by learning words that you actually use. <a class="alert-link" data-bs-toggle="collapse" href="#quickGuide" role="button" aria-expanded="false" aria-controls="quickGuide">Learn more</a>.
+              <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close" data-intro-dismiss="1"></button>
+            </div>
             <form id="analyze-form" method="post" action="{% url 'analyze' %}">
               {% csrf_token %}
               <input type="hidden" name="know_rest" value="0">
@@ -99,6 +115,15 @@
   </div>
   
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+  (function(){
+    var banner=document.getElementById('intro-banner');
+    if(!banner)return;
+    if(localStorage.getItem('jorp_intro_dismissed')==='1'){banner.style.display='none';}
+    var closeBtn=banner.querySelector('[data-intro-dismiss]');
+    if(closeBtn){closeBtn.addEventListener('click',function(){localStorage.setItem('jorp_intro_dismissed','1');});}
+  })();
+  </script>
   <script type="module" src="{% static 'analysis/js/interactive/index.js' %}"></script>
 </body>
 </html> 

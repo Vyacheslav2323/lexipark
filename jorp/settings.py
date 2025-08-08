@@ -59,6 +59,9 @@ INSTALLED_APPS = [
     'vocab',
 ]
 
+if DEBUG:
+    INSTALLED_APPS.append('sslserver')
+
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
@@ -177,11 +180,11 @@ X_FRAME_OPTIONS = 'DENY'
 SECURE_HSTS_SECONDS = 31536000
 SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 SECURE_HSTS_PRELOAD = True
-SECURE_SSL_REDIRECT = os.getenv('RENDER', '') == '' and os.getenv('DEBUG', 'False').lower() != 'true'
+SECURE_SSL_REDIRECT = not DEBUG
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 # Session Security
-SESSION_COOKIE_SECURE = os.getenv('DEBUG', 'False').lower() != 'true'
-CSRF_COOKIE_SECURE = os.getenv('DEBUG', 'False').lower() != 'true'
+SESSION_COOKIE_SECURE = not DEBUG
+CSRF_COOKIE_SECURE = not DEBUG
 SESSION_COOKIE_HTTPONLY = True
 CSRF_COOKIE_HTTPONLY = True
