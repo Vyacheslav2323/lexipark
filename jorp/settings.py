@@ -41,6 +41,7 @@ CSRF_TRUSTED_ORIGINS = [
     'http://localhost:8000',
     'http://127.0.0.1:8000',
     'https://lexipark.onrender.com',
+    'https://*.onrender.com',
 ]
 
 
@@ -60,6 +61,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -157,7 +159,6 @@ if (BASE_DIR / "static").exists():
 STATICFILES_DIRS = static_dirs
 
 # Add whitenoise for static file serving
-MIDDLEWARE.insert(1, 'whitenoise.middleware.WhiteNoiseMiddleware')
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedStaticFilesStorage'
 
 # Default primary key field type
@@ -176,9 +177,11 @@ X_FRAME_OPTIONS = 'DENY'
 SECURE_HSTS_SECONDS = 31536000
 SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 SECURE_HSTS_PRELOAD = True
+SECURE_SSL_REDIRECT = os.getenv('RENDER', '') == '' and os.getenv('DEBUG', 'False').lower() != 'true'
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 # Session Security
-SESSION_COOKIE_SECURE = False  # Allow HTTP in development
-CSRF_COOKIE_SECURE = False     # Allow HTTP in development
+SESSION_COOKIE_SECURE = os.getenv('DEBUG', 'False').lower() != 'true'
+CSRF_COOKIE_SECURE = os.getenv('DEBUG', 'False').lower() != 'true'
 SESSION_COOKIE_HTTPONLY = True
 CSRF_COOKIE_HTTPONLY = True

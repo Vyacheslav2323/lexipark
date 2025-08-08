@@ -9,9 +9,13 @@ from MeCab import Tagger
 
 def _request_papago_api(text: str) -> str:
     url = "https://papago.apigw.ntruss.com/nmt/v1/translation"
+    client_id = os.getenv('NAVER_CLIENT_ID')
+    client_secret = os.getenv('NAVER_CLIENT_SECRET')
+    if not client_id or not client_secret:
+        return text
     headers = {
-        "x-ncp-apigw-api-key-id": os.getenv('NAVER_CLIENT_ID', 'x8wqn9022w'),
-        "x-ncp-apigw-api-key": os.getenv('NAVER_CLIENT_SECRET', 'c8BMfUF2lqFldkpcFe6k2j5GKGvleIPkpPvHraSC'),
+        "x-ncp-apigw-api-key-id": client_id,
+        "x-ncp-apigw-api-key": client_secret,
         "Content-Type": "application/json"
     }
     data = {
@@ -19,20 +23,14 @@ def _request_papago_api(text: str) -> str:
         "target": "en",
         "text": text
     }
-    
     try:
         response = requests.post(url, headers=headers, json=data, timeout=10)
-        
         if response.status_code == 200:
             result = response.json()
             translated_text = result["message"]["result"]["translatedText"]
             return translated_text
-        else:
-            print(f"DEBUG: Papago API error - Status: {response.status_code}")
-            print(f"DEBUG: Papago API error - Response: {response.text[:200]}")
-            return text
-    except Exception as e:
-        print(f"DEBUG: Papago API exception: {e}")
+        return text
+    except Exception:
         return text
 
 def tokenize(text):

@@ -15,9 +15,9 @@ services:
           name: jorp-postgres
           property: connectionString
       - key: NAVER_CLIENT_ID
-        value: x8wqn9022w
+        sync: false
       - key: NAVER_CLIENT_SECRET
-        value: c8BMfUF2lqFldkpcFe6k2j5GKGvleIPkpPvHraSC
+        sync: false
 
 databases:
   - name: jorp-postgres
