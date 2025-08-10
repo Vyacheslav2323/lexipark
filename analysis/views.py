@@ -172,3 +172,67 @@ def batch_update_recalls_view(request):
             return JsonResponse({'success': False, 'error': str(e)})
     
     return JsonResponse({'success': False, 'error': 'Invalid request'})
+
+@csrf_exempt
+def translate_sentence(request):
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            sentence = data.get('sentence', '')
+            
+            if sentence.strip():
+                from .mecab_utils import get_sentence_translation
+                translation = get_sentence_translation(sentence)
+                return JsonResponse({'translation': translation})
+        except Exception as e:
+            return JsonResponse({'error': str(e)})
+    
+    return JsonResponse({'error': 'Invalid request'})
+
+@login_required
+@csrf_exempt
+def process_photo_ocr(request):
+    if request.method == 'POST':
+        try:
+            print(f"Processing photo OCR request from user: {request.user}")
+            print(f"Files received: {list(request.FILES.keys())}")
+            
+            if 'image' not in request.FILES:
+                return JsonResponse({'success': False, 'error': 'No image file provided'})
+            
+            image_file = request.FILES['image']
+            print(f"Image file: {image_file.name}, size: {image_file.size}, type: {image_file.content_type}")
+            
+            if not image_file.content_type.startswith('image/'):
+                return JsonResponse({'success': False, 'error': 'File must be an image'})
+            
+            from .ocr_processing import extract_text_from_uploaded_image
+            print("Starting OCR processing...")
+            extracted_text = extract_text_from_uploaded_image(image_file)
+            print(f"OCR result: {extracted_text[:100] if extracted_text else 'None'}")
+            
+            if extracted_text:
+                return JsonResponse({
+                    'success': True,
+                    'text': extracted_text,
+                    'message': 'Text extracted successfully'
+                })
+            else:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'No text could be extracted from the image'
+                })
+                
+        except Exception as e:
+            print(f"Error in process_photo_ocr: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            return JsonResponse({'success': False, 'error': str(e)})
+    
+    return JsonResponse({'success': False, 'error': 'Invalid request method'})
+
+def image_analysis_view(request):
+    from django.shortcuts import redirect
+    return redirect('analysis:analyze')
+
+
