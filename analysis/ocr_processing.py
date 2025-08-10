@@ -4,29 +4,73 @@ import time
 import uuid
 import requests
 import os
+import io
 import mimetypes
 from PIL import Image, ImageOps
 from django.conf import settings
 
 # Clova OCR Configuration
-CLOVA_OCR_URL = getattr(settings, 'CLOVA_OCR_URL', 'https://sc3y9jhv73.apigw.ntruss.com/custom/v1/45060/e7f1a66c25fa7771cced95aba1bb01b4c64bc1c18bd36dfc5abbc516412521fa/general')
-CLOVA_OCR_SECRET = getattr(settings, 'CLOVA_OCR_SECRET', 'ZWFWSlJwaG5ZVGFZcWJDbnFUVGRKbWdiQVh5eHdhYlU=')
+CLOVA_OCR_URL = getattr(settings, 'CLOVA_OCR_URL', None)
+CLOVA_OCR_SECRET = getattr(settings, 'CLOVA_OCR_SECRET', None)
+
+def _guess_ext(name):
+    ctype = mimetypes.guess_type(name)[0]
+    ext = (mimetypes.guess_extension(ctype) or ".jpg").lstrip(".")
+    return ext.lower()
+
+def _is_supported_ext(ext):
+    return ext in {"jpg", "jpeg", "png"}
+
+def _load_pil(image_file):
+    try:
+        image_file.seek(0)
+        return Image.open(image_file)
+    except Exception:
+        try:
+            import pillow_heif
+            pillow_heif.register_heif_opener()
+            image_file.seek(0)
+            return Image.open(image_file)
+        except Exception:
+            return None
+
+def _pil_to_jpeg_bytes(pil_img):
+    img = ImageOps.exif_transpose(pil_img.convert("RGB"))
+    w, h = img.size
+    m = max(w, h)
+    if m > 2048:
+        scale = 2048.0 / float(m)
+        img = img.resize((int(w * scale), int(h * scale)))
+    buf = io.BytesIO()
+    img.save(buf, format="JPEG", quality=85, optimize=True)
+    return buf.getvalue()
 
 def build_clova_request(image_file, lang="ko"):
-    ext = (mimetypes.guess_extension(mimetypes.guess_type(image_file.name)[0]) or ".jpg").lstrip(".")
-    
-    # Read and encode image
-    image_data = image_file.read()
-    b64_data = base64.b64encode(image_data).decode("utf-8")
-    
+    name = getattr(image_file, "name", "upload")
+    ext = _guess_ext(name)
+    pil = _load_pil(image_file)
+    if pil is None:
+        image_file.seek(0)
+        raw = image_file.read()
+        data = raw
+        fmt = "jpg" if ext not in {"jpg", "jpeg", "png"} else ext
+    else:
+        if _is_supported_ext(ext):
+            image_file.seek(0)
+            data = image_file.read()
+            fmt = ext
+        else:
+            data = _pil_to_jpeg_bytes(pil)
+            fmt = "jpg"
+    b64_data = base64.b64encode(data).decode("utf-8")
     return {
         "version": "V1",
         "requestId": str(uuid.uuid4()),
         "timestamp": int(time.time() * 1000),
         "lang": lang,
         "images": [{
-            "format": ext,
-            "name": image_file.name,
+            "format": fmt,
+            "name": name,
             "data": b64_data,
             "url": None
         }]
@@ -51,19 +95,14 @@ def extract_text_from_cgimage(cgimg):
     # This maintains compatibility with existing code
     return []
 
-def process_image_file(image_file, min_confidence=0.0):  # Clova OCR returns 0.0 for valid text
+def process_image_file(image_file, min_confidence=0.0):
     try:
-        # Reset file pointer
-        image_file.seek(0)
-        
-        # Get image dimensions first
-        pil_img = Image.open(image_file)
-        img_width, img_height = pil_img.size
-        
-        # Build Clova OCR request
         request_body = build_clova_request(image_file)
-        
-        # Call Clova OCR
+        pil_img = _load_pil(image_file)
+        if pil_img is None:
+            image_file.seek(0)
+            pil_img = Image.open(image_file)
+        img_width, img_height = pil_img.size
         result = call_clova_ocr(request_body)
         
         if not result:
