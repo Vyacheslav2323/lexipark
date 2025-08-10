@@ -1,0 +1,16 @@
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.log
+.DS_Store
+.git/
+.gitignore
+.mypy_cache/
+pytest_cache/
+staticfiles/
+node_modules/
+.pretranslate_cache/
+import_counts.log
+pretranslate.log
