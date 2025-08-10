@@ -109,13 +109,24 @@ if os.getenv('DATABASE_URL'):
     try:
         import dj_database_url
         DATABASES['default'] = dj_database_url.parse(os.getenv('DATABASE_URL'))
-        print("Using PostgreSQL database")
+        print("Using PostgreSQL database from DATABASE_URL")
+    except Exception as e:
+        print(f"PostgreSQL connection failed: {e}")
+        print("Falling back to SQLite database")
+        # Keep the SQLite configuration
+# Try to construct DATABASE_URL from individual environment variables
+elif all([os.getenv('DB_NAME'), os.getenv('DB_USER'), os.getenv('DB_PASSWORD'), os.getenv('DB_HOST'), os.getenv('DB_PORT')]):
+    try:
+        import dj_database_url
+        database_url = f"postgresql://{os.getenv('DB_USER')}:{os.getenv('DB_PASSWORD')}@{os.getenv('DB_HOST')}:{os.getenv('DB_PORT')}/{os.getenv('DB_NAME')}"
+        DATABASES['default'] = dj_database_url.parse(database_url)
+        print("Using PostgreSQL database from individual environment variables")
     except Exception as e:
         print(f"PostgreSQL connection failed: {e}")
         print("Falling back to SQLite database")
         # Keep the SQLite configuration
 else:
-    print("No DATABASE_URL found, using SQLite database")
+    print("No database configuration found, using SQLite database")
 
 
 # Password validation

@@ -183,23 +183,7 @@ def split_text_into_sentences(text):
 
 def get_sentence_translation(sentence):
     try:
-        from vocab.models import GlobalTranslation
-        
-        cached_translation = GlobalTranslation.objects.filter(korean_word=sentence).first()
-        if cached_translation:
-            cached_translation.usage_count += 1
-            cached_translation.save()
-            return cached_translation.english_translation
-        
         translation = _request_papago_api(sentence)
-        if translation != sentence:
-            try:
-                GlobalTranslation.objects.get_or_create(
-                    korean_word=sentence,
-                    defaults={'english_translation': translation}
-                )
-            except Exception as db_error:
-                print(f"Translation error for sentence '{sentence}': {db_error}")
         return translation
     except Exception as e:
         print(f"Translation error for sentence '{sentence}': {e}")
@@ -220,8 +204,7 @@ def create_interactive_text_with_sentences(text, vocab_words=None):
             html_parts.append(sentence_html)
         
         if punctuation:
-            sentence_translation = get_sentence_translation(sentence)
-            html_parts.append(f'<span class="sentence-punctuation" data-sentence-translation="{sentence_translation}">{punctuation}</span>')
+            html_parts.append(f'<span class="sentence-punctuation" data-sentence="{sentence}">{punctuation}</span>')
     
     return ''.join(html_parts)
 

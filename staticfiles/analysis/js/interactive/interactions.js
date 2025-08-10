@@ -106,11 +106,31 @@ export function setupWordsEvents() {
 export function setupSentenceEvents() {
   document.querySelectorAll('.sentence-punctuation').forEach(function(punctuation) {
     let hoverStartTime = null;
-    const sentenceTranslation = punctuation.getAttribute('data-sentence-translation');
+    let translation = null;
+    
     punctuation.addEventListener('mouseenter', function() {
       hoverStartTime = Date.now();
-      showSentenceTranslation(this, sentenceTranslation);
+      
+      if (!translation) {
+        const sentence = this.getAttribute('data-sentence');
+        fetch('/analysis/translate-sentence/', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({sentence: sentence})
+        })
+        .then(response => response.json())
+        .then(data => {
+          translation = data.translation;
+          showSentenceTranslation(this, translation);
+        })
+        .catch(error => {
+          console.error('Translation error:', error);
+        });
+      } else {
+        showSentenceTranslation(this, translation);
+      }
     });
+    
     punctuation.addEventListener('mouseleave', function() {
       if (hoverStartTime) {
         const hoverDuration = Date.now() - hoverStartTime;
