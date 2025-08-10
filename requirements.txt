@@ -10,4 +10,7 @@ dj-database-url==2.1.0
 mecab-python3==1.0.10
 konlpy==0.6.0
 django-sslserver==0.22
-opencv-python==4.9.0.80
+pyobjc-framework-Vision==10.1
+pyobjc-framework-Quartz==10.1
+pyobjc-framework-Foundation==10.1
+pyobjc-core==10.1
