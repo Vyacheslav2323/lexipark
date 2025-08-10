@@ -3,33 +3,23 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.decorators import login_required
 import json
-from .mecab_utils import analyze_sentence, translate_results, create_interactive_sentence, create_interactive_text_with_sentences
+from .mecab_utils import analyze_sentence, translate_results, create_interactive_sentence, create_interactive_text_with_sentences, get_papago_translation
 from vocab.models import Vocabulary
 
 def analyze_view(request):
-    results = None
-    translations = None
     interactive_html = None
+    analyzed_text = ''
     vocab_words = set()
-    
     if request.method == 'POST':
         text = request.POST.get('textinput', '')
         if text.strip():
-            results = analyze_sentence(text)
-            translations = translate_results(results)
-            
+            analyzed_text = text
             if request.user.is_authenticated:
                 vocab_words = set(Vocabulary.objects.filter(user=request.user).values_list('korean_word', flat=True))
-            else:
-                vocab_words = set()
-            
             interactive_html = create_interactive_text_with_sentences(text, vocab_words)
-    
     context = {
-        'results': results,
-        'translations': translations,
         'interactive_html': interactive_html,
-        'analyzed_text': text if 'text' in locals() else ''
+        'analyzed_text': analyzed_text
     }
     return render(request, 'analysis/page1.html', context)
 
@@ -231,8 +221,159 @@ def process_photo_ocr(request):
     
     return JsonResponse({'success': False, 'error': 'Invalid request method'})
 
+@login_required
+@csrf_exempt
+def analyze_ocr_text(request):
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            text = data.get('text', '')
+            
+            if not text.strip():
+                return JsonResponse({'success': False, 'error': 'No text provided'})
+            
+            results = analyze_sentence(text)
+            
+            user_vocab_qs = Vocabulary.objects.filter(user=request.user)
+            vocab_words = set(user_vocab_qs.values_list('korean_word', flat=True))
+            vocab_map = {v.korean_word: v.english_translation for v in user_vocab_qs}
+            try:
+                from vocab.models import GlobalTranslation
+                bases = [b for (_, b, _, _) in results if b]
+                globals_qs = GlobalTranslation.objects.filter(korean_word__in=bases)
+                global_map = {g.korean_word: g.english_translation for g in globals_qs}
+            except Exception:
+                global_map = {}
+            
+            # Process each word with vocabulary info
+            words_data = []
+            for (surface, base, pos, grammar_info) in results:
+                if base is None:
+                    continue
+                    
+                word_info = {
+                    'surface': surface,
+                    'base': base,
+                    'pos': pos,
+                    'grammar_info': grammar_info,
+                    'translation': global_map.get(base) or vocab_map.get(base),
+                    'in_vocab': base in vocab_words
+                }
+                
+                # Add color if in vocabulary
+                if word_info['in_vocab']:
+                    try:
+                        vocab_entry = Vocabulary.objects.filter(korean_word=base).first()
+                        if vocab_entry:
+                            from .mecab_utils import retention_to_color
+                            word_info['color'] = retention_to_color(vocab_entry.get_retention_rate())
+                    except:
+                        pass
+                
+                words_data.append(word_info)
+            
+            return JsonResponse({
+                'success': True,
+                'words': words_data
+            })
+            
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)})
+    
+    return JsonResponse({'success': False, 'error': 'Invalid request method'})
+
 def image_analysis_view(request):
-    from django.shortcuts import redirect
-    return redirect('analysis:analyze')
+    if request.method == 'POST':
+        try:
+            if 'image' not in request.FILES:
+                return JsonResponse({'success': False, 'error': 'No image file provided'})
+            
+            image_file = request.FILES['image']
+            confidence = float(request.POST.get('confidence', 0.30))
+            
+            if not image_file.content_type.startswith('image/'):
+                return JsonResponse({'success': False, 'error': 'File must be an image'})
+            
+            from .ocr_processing import process_image_file
+            result = process_image_file(image_file, confidence)
+            
+            if result:
+                return JsonResponse({
+                    'success': True,
+                    'ocr_data': result
+                })
+            else:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'OCR processing failed'
+                })
+                
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)})
+    
+    # GET request - render the template
+    vocab_words = set()
+    if request.user.is_authenticated:
+        vocab_words = set(Vocabulary.objects.filter(user=request.user).values_list('korean_word', flat=True))
+    
+    import json as _json
+    context = {
+        'vocab_words_json': _json.dumps(list(vocab_words))
+    }
+    return render(request, 'analysis/image_analysis.html', context)
 
 
+@csrf_exempt
+def analyze_sentence_chunk(request):
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            sentence = data.get('sentence', '')
+            if not sentence.strip():
+                return JsonResponse({'success': False, 'error': 'Empty sentence'})
+            vocab_words = set()
+            vocab_map = {}
+            if request.user.is_authenticated:
+                qs = Vocabulary.objects.filter(user=request.user)
+                vocab_words = set(qs.values_list('korean_word', flat=True))
+                vocab_map = {v.korean_word: v.english_translation for v in qs}
+            results = analyze_sentence(sentence)
+            translations = []
+            for _, base, _, _ in results:
+                if base is None:
+                    translations.append(None)
+                else:
+                    translations.append(vocab_map.get(base, ''))
+            html = create_interactive_sentence(sentence, results, translations, vocab_words)
+            return JsonResponse({'success': True, 'html': html})
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)})
+    return JsonResponse({'success': False, 'error': 'Invalid request'})
+
+
+@csrf_exempt
+def translate_word(request):
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            word = data.get('word', '')
+            if not word:
+                return JsonResponse({'success': False, 'error': 'No word provided'})
+            if request.user.is_authenticated:
+                vocab = Vocabulary.objects.filter(user=request.user, korean_word=word).first()
+                if vocab and vocab.english_translation:
+                    return JsonResponse({'success': True, 'translation': vocab.english_translation})
+            try:
+                from vocab.models import GlobalTranslation
+                gt = GlobalTranslation.objects.filter(korean_word=word).first()
+                if gt and gt.english_translation:
+                    gt.usage_count += 1
+                    gt.save()
+                    return JsonResponse({'success': True, 'translation': gt.english_translation})
+            except Exception:
+                pass
+            translation = get_papago_translation(word)
+            return JsonResponse({'success': True, 'translation': translation})
+        except Exception as e:
+            return JsonResponse({'success': False, 'error': str(e)})
+    return JsonResponse({'success': False, 'error': 'Invalid request'})

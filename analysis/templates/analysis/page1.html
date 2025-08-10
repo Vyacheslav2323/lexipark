@@ -34,18 +34,7 @@
         <form id="analyze-form" method="post" action="{% url 'analysis:analyze' %}">
           {% csrf_token %}
           <input type="hidden" name="know_rest" value="0">
-          <div class="mb-3">
-            <label class="form-label">
-              <i class="fas fa-camera me-1"></i>Import photo
-            </label>
-            <div class="input-group">
-              <input type="file" id="photo-input" class="form-control" accept="image/*" style="display: none;">
-              <button type="button" id="photo-import-btn" class="btn btn-outline-secondary">
-                <i class="fas fa-upload me-2"></i>Choose Photo
-              </button>
-              <span id="photo-filename" class="form-control-plaintext text-muted"></span>
-            </div>
-          </div>
+          
           <div class="mb-3">
             <label for="textinput" class="form-label">
               <i class="fas fa-edit me-1"></i>Enter text to analyze
@@ -62,25 +51,25 @@
         
         <div id="analysis-result"></div>
         
-        {% if interactive_html %}
-          <div class="mt-4">
-            <label class="form-label">
-              <i class="fas fa-list me-1"></i>Interactive Analysis Results
-            </label>
-            <div class="border rounded p-3 bg-light">
-              <p class="mb-0" style="font-size: 18px; line-height: 1.6;">
-                {{ interactive_html|safe }}
-              </p>
-            </div>
-            <small class="text-muted mt-2 d-block">
-              <i class="fas fa-info-circle me-1"></i>Hover over Korean words to see translations
-            </small>
-            <button id="finish-analysis-btn" class="btn btn-success mt-3 w-100" data-text="{{ analyzed_text }}">
-              <i class="fas fa-check me-2"></i>Finish analysis
-              <div id="finish-spinner" class="spinner"></div>
-            </button>
+        <div class="mt-4">
+          <label class="form-label">
+            <i class="fas fa-list me-1"></i>Interactive Analysis Results
+          </label>
+          <div class="border rounded p-3 bg-light">
+            {% if interactive_html %}
+            <p class="mb-0" style="font-size: 18px; line-height: 1.6;">
+              {{ interactive_html|safe }}
+            </p>
+            {% endif %}
           </div>
-        {% endif %}
+          <small class="text-muted mt-2 d-block">
+            <i class="fas fa-info-circle me-1"></i>Hover over Korean words to see translations
+          </small>
+          <button id="finish-analysis-btn" class="btn btn-success mt-3 w-100 {% if not interactive_html %}d-none{% endif %}" data-text="{{ analyzed_text }}">
+            <i class="fas fa-check me-2"></i>Finish analysis
+            <div id="finish-spinner" class="spinner"></div>
+          </button>
+        </div>
       </div>
     </div>
   </div>

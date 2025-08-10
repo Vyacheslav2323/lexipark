@@ -83,16 +83,6 @@
     white-space: nowrap;
 }
 
-.confidence-slider {
-    flex: 1;
-    min-width: 150px;
-}
-
-.confidence-value {
-    font-weight: 600;
-    color: #667eea;
-}
-
 .btn {
     padding: 12px 24px;
     border: none;
@@ -140,12 +130,21 @@
 }
 
 .image-container {
-    position: relative;
+    position: relative !important;
     display: inline-block;
     margin: 20px;
     text-align: center;
     border: 1px solid #ddd;
     border-radius: 8px;
+    overflow: visible;
+}
+
+#imageContainer {
+    position: relative !important;
+}
+
+#imageContainer img {
+    display: block;
 }
 
 .ocr-image {
@@ -157,10 +156,10 @@
 .text-overlay {
     position: absolute;
     z-index: 10;
-    pointer-events: none;
-    border: 1px solid rgba(0,0,0,0.2);
+    pointer-events: auto;
+    border: none;
     background-color: transparent;
-    transition: all 0.2s ease;
+    transition: none;
 }
 
 .text-overlay:hover {
@@ -168,18 +167,37 @@
     background-color: rgba(0,0,0,0.05);
 }
 
-/* Keep OCR overlays fully transparent regardless of vocab status */
-.text-overlay.interactive-word,
-.text-overlay.interactive-word:hover,
-.text-overlay.interactive-word:not(.in-vocab),
-.text-overlay.interactive-word:not(.in-vocab):hover {
-    background-color: transparent !important;
+/* OCR overlays should be visible */
+/* Color now applied via inline gradient in JS */
+
+/* Hover translation tooltips for OCR overlays */
+.text-overlay.interactive-word::after {
+    content: attr(data-translation);
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #333;
+    color: white;
+    padding: 5px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    white-space: nowrap;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s;
+    z-index: 1000;
+    min-width: 100px;
+    text-align: center;
 }
 
-/* Hide translation tooltip for OCR overlays */
-.text-overlay.interactive-word::after {
-    display: none !important;
+.text-overlay.interactive-word:hover::after {
+    opacity: 1;
 }
+
+
+
+/* Hide translation tooltip for OCR overlays - REMOVED CONFLICTING RULE */
 
 .text-overlay .label {
     position: absolute;

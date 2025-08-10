@@ -1,6 +1,49 @@
 import { addRecallInteraction } from './recall.js';
 import { saveToVocabulary } from './vocabulary.js';
 import { state } from './state.js';
+function shouldTranslate(word, el) {
+  if (!word) return false;
+  if (!el) return true;
+  const dt = el.getAttribute('data-translation');
+  if (!dt) return true;
+  if (dt === word) return true;
+  return false;
+}
+
+function promoteTranslation(word) {
+  if (!word) return;
+  state.translationQueue = [word, ...state.translationQueue.filter(w => w !== word)];
+  runTranslationQueue();
+}
+
+function ensureQueuedTranslation(original, el) {
+  if (!shouldTranslate(original, el)) return;
+  promoteTranslation(original);
+}
+
+function runTranslationQueue() {
+  if (state.isTranslating) return;
+  const next = state.translationQueue.shift();
+  if (!next) return;
+  state.isTranslating = true;
+  fetch('/analysis/translate-word/', {method:'POST', headers:{'Content-Type':'application/json','X-Requested-With':'XMLHttpRequest'}, body: JSON.stringify({word: next})})
+    .then(r=>r.json())
+    .then(d=>{
+      const t = d && d.success ? d.translation : '';
+      document.querySelectorAll('.interactive-word[data-original="'+next+'"]').forEach(node=>{
+        if (t && shouldTranslate(next, node)) node.setAttribute('data-translation', t);
+      });
+    })
+    .catch(()=>{})
+    .finally(()=>{
+      state.isTranslating = false;
+      runTranslationQueue();
+    });
+}
+
+function queueSequentialTranslations(words) {
+  words.forEach(w => ensureQueuedTranslation(w));
+}
 import { showNotification, showSentenceTranslation, hideSentenceTranslation } from './ui.js';
 import { handleAnalyzeSubmit } from './analysis.js';
 
@@ -50,6 +93,40 @@ function trackHoverDuration(koreanWord, duration) {
     .catch(error => {
       console.error('Network error in hover tracking:', error);
     });
+}
+
+export function bindWordElementEvents(word) {
+  let hoverStartTime = null;
+  const original = word.getAttribute('data-original');
+  word.addEventListener('mouseenter', function() {
+    hoverStartTime = Date.now();
+    ensureQueuedTranslation(original, word);
+  });
+  word.addEventListener('mouseleave', function() {
+    if (hoverStartTime) {
+      const hoverDuration = Date.now() - hoverStartTime;
+      trackHoverDuration(original, hoverDuration);
+      state.hoveredWords.add(original);
+      if (word.classList.contains('in-vocab') || word.style.backgroundColor) {
+        const hadLookup = hoverDuration > 1000;
+        addRecallInteraction(original, hadLookup);
+      }
+      hoverStartTime = null;
+    }
+  });
+  word.addEventListener('click', function() {
+    const translation = this.getAttribute('data-translation');
+    const pos = this.getAttribute('data-pos');
+    const grammar = this.getAttribute('data-grammar');
+    const isInVocab = this.classList.contains('in-vocab');
+    if (isInVocab) {
+      showNotification('Word is already in your vocabulary!', 'info');
+      state.hoveredWords.add(original);
+      addRecallInteraction(original, true);
+    } else {
+      saveToVocabulary(original, pos, grammar, translation);
+    }
+  });
 }
 
 function processPhotoWithOCR(imageFile) {
@@ -113,54 +190,19 @@ function setPhotoImportLoading(isLoading) {
   }
 }
 
-function setupPhotoImport() {
-  console.log('setupPhotoImport called');
-  const photoInput = document.getElementById('photo-input');
-  const photoImportBtn = document.getElementById('photo-import-btn');
-  const photoFilename = document.getElementById('photo-filename');
-  const textInput = document.getElementById('textinput');
-  
-  console.log('Elements found:', { photoInput, photoImportBtn, photoFilename, textInput });
-  
-  if (photoImportBtn && photoInput) {
-    console.log('Adding click listener to photo import button');
-    photoImportBtn.addEventListener('click', function() {
-      console.log('Photo import button clicked');
-      photoInput.click();
-    });
-    
-    photoInput.addEventListener('change', function() {
-      console.log('File input change event triggered');
-      console.log('Files:', this.files);
-      if (this.files && this.files[0]) {
-        const file = this.files[0];
-        console.log('Selected file:', file.name, file.type, file.size);
-        photoFilename.textContent = file.name;
-        
-        setPhotoImportLoading(true);
-        
-        processPhotoWithOCR(file)
-          .then(extractedText => {
-            if (textInput && extractedText) {
-              textInput.value = extractedText;
-              showNotification('Text extracted from photo successfully!', 'success');
-            }
-          })
-          .catch(error => {
-            console.error('OCR error:', error);
-            console.error('Error details:', error.message);
-            showNotification('Failed to extract text from photo: ' + error.message, 'error');
-          })
-          .finally(() => {
-            setPhotoImportLoading(false);
-          });
-      }
-    });
-  }
-}
+function setupPhotoImport() {}
 
 export function setupWordsEvents() {
   setupPhotoImport();
+  
+  // Expose functions to window for use by other modules
+  window.trackHoverDuration = trackHoverDuration;
+  window.saveToVocabulary = saveToVocabulary;
+  window.addRecallInteraction = addRecallInteraction;
+  window.showNotification = showNotification;
+  window.bindWordElementEvents = bindWordElementEvents;
+  window.queueSequentialTranslations = queueSequentialTranslations;
+  
   document.querySelectorAll('.interactive-word[data-original]').forEach(function(word) {
     const original = word.getAttribute('data-original');
     if (word.classList.contains('in-vocab') || word.style.backgroundColor) {
@@ -168,37 +210,10 @@ export function setupWordsEvents() {
     }
   });
   document.querySelectorAll('.interactive-word').forEach(function(word) {
-    let hoverStartTime = null;
-    const original = word.getAttribute('data-original');
-    word.addEventListener('mouseenter', function() {
-      hoverStartTime = Date.now();
-    });
-    word.addEventListener('mouseleave', function() {
-      if (hoverStartTime) {
-        const hoverDuration = Date.now() - hoverStartTime;
-        trackHoverDuration(original, hoverDuration);
-        state.hoveredWords.add(original);
-        if (word.classList.contains('in-vocab') || word.style.backgroundColor) {
-          const hadLookup = hoverDuration > 1000;
-          addRecallInteraction(original, hadLookup);
-        }
-        hoverStartTime = null;
-      }
-    });
-    word.addEventListener('click', function() {
-      const translation = this.getAttribute('data-translation');
-      const pos = this.getAttribute('data-pos');
-      const grammar = this.getAttribute('data-grammar');
-      const isInVocab = this.classList.contains('in-vocab');
-      if (isInVocab) {
-        showNotification('Word is already in your vocabulary!', 'info');
-        state.hoveredWords.add(original);
-        addRecallInteraction(original, true);
-      } else {
-        saveToVocabulary(original, pos, grammar, translation);
-      }
-    });
+    bindWordElementEvents(word);
   });
+  const originals = Array.from(new Set(Array.from(document.querySelectorAll('.interactive-word[data-original]')).map(w => w.getAttribute('data-original'))));
+  if (originals.length > 0) queueSequentialTranslations(originals);
   const analyzeForm = document.getElementById('analyze-form');
   if (analyzeForm) {
     analyzeForm.addEventListener('submit', function(e) {

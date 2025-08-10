@@ -1,5 +1,5 @@
 from django.urls import path
-from .views import analyze_view, track_hover, track_sentence_hover, finish_analysis_view, batch_update_recalls_view, translate_sentence, process_photo_ocr, image_analysis_view
+from .views import analyze_view, track_hover, track_sentence_hover, finish_analysis_view, batch_update_recalls_view, translate_sentence, process_photo_ocr, image_analysis_view, analyze_ocr_text, analyze_sentence_chunk, translate_word
 
 app_name = 'analysis'
 
@@ -12,5 +12,8 @@ urlpatterns = [
     path('finish-analysis/', finish_analysis_view, name='finish_analysis'),
     path('batch-update-recalls/', batch_update_recalls_view, name='batch_update_recalls'),
     path('translate-sentence/', translate_sentence, name='translate_sentence'),
+    path('analyze-sentence/', analyze_sentence_chunk, name='analyze_sentence'),
+    path('translate-word/', translate_word, name='translate_word'),
     path('process-photo-analysis/', process_photo_ocr, name='process_photo_analysis'),
+    path('analyze-ocr-text/', analyze_ocr_text, name='analyze_ocr_text'),
 ] 

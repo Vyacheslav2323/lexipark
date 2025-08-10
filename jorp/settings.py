@@ -199,3 +199,7 @@ SESSION_COOKIE_SECURE = not DEBUG
 CSRF_COOKIE_SECURE = not DEBUG
 SESSION_COOKIE_HTTPONLY = True
 CSRF_COOKIE_HTTPONLY = True
+
+# Clova OCR Configuration
+CLOVA_OCR_URL = os.getenv('CLOVA_OCR_URL', 'https://sc3y9jhv73.apigw.ntruss.com/custom/v1/45060/e7f1a66c25fa7771cced95aba1bb01b4c64bc1c18bd36dfc5abbc516412521fa/general')
+CLOVA_OCR_SECRET = os.getenv('CLOVA_OCR_SECRET', 'ZWFWSlJwaG5ZVGFZcWJDbnFUVGRKbWdiQVh5eHdhYlU=')

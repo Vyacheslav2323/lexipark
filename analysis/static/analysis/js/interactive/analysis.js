@@ -12,7 +12,17 @@ export function handleAnalyzeSubmit() {
   }
   if (spinner) spinner.style.display = 'inline-block';
   if (btn) btn.disabled = true;
-  return true;
+  startProgressiveAnalysis(text, {
+    onFirstChunk: () => {
+      if (spinner) spinner.style.display = 'none';
+      if (btn) btn.disabled = false;
+    },
+    onComplete: () => {
+      if (spinner) spinner.style.display = 'none';
+      if (btn) btn.disabled = false;
+    }
+  });
+  return false;
 }
 
 export function handleFinishAnalysis() {
@@ -148,3 +158,61 @@ export function setupAnalysis() {
     }
   }, 1000);
 } 
+
+function splitIntoSentences(text) {
+  const parts = text.split(/([.!?])/);
+  const out = [];
+  for (let i = 0; i < parts.length; i += 2) {
+    const s = (parts[i] || '').trim();
+    const p = parts[i + 1] || '';
+    if (s) out.push([s, p]);
+  }
+  return out;
+}
+
+function startProgressiveAnalysis(text, callbacks = {}) {
+  const container = document.getElementById('analysis-result');
+  if (container) container.innerHTML = '';
+  const finishBtn = document.getElementById('finish-analysis-btn');
+  if (finishBtn) finishBtn.setAttribute('data-text', text);
+  if (finishBtn) finishBtn.classList.remove('d-none');
+  if (finishBtn) finishBtn.style.display = 'block';
+  const pairs = splitIntoSentences(text);
+  if (pairs.length === 0) {
+    if (callbacks.onComplete) callbacks.onComplete();
+    return;
+  }
+  let pending = pairs.length;
+  let firstChunkSeen = false;
+  const firstChunkTimeout = setTimeout(() => {
+    if (!firstChunkSeen && callbacks.onFirstChunk) callbacks.onFirstChunk();
+  }, 4000);
+  pairs.forEach(([s, p]) => {
+    fetch('/analysis/analyze-sentence/', {method: 'POST', headers: {'Content-Type': 'application/json','X-Requested-With':'XMLHttpRequest'}, body: JSON.stringify({sentence: s})})
+      .then(r => r.json())
+      .then(d => {
+        if (!d.success) return;
+        const frag = document.createElement('div');
+        frag.innerHTML = `<span style="font-size:18px;line-height:1.6;">${d.html}</span>` + (p ? `<span class="sentence-punctuation" data-sentence="${s}">${p}</span>` : '');
+        container.appendChild(frag);
+        frag.querySelectorAll('.interactive-word').forEach(w => { if (window.bindWordElementEvents) window.bindWordElementEvents(w); });
+        if (window.setupSentenceEvents) window.setupSentenceEvents();
+        if (window.queueSequentialTranslations) {
+          const originals = Array.from(new Set(Array.from(frag.querySelectorAll('.interactive-word[data-original]')).map(w => w.getAttribute('data-original'))));
+          if (originals.length) window.queueSequentialTranslations(originals);
+        }
+        if (!firstChunkSeen) {
+          firstChunkSeen = true;
+          if (callbacks.onFirstChunk) callbacks.onFirstChunk();
+        }
+      })
+      .catch(() => {})
+      .finally(() => {
+        pending -= 1;
+        if (pending === 0) {
+          clearTimeout(firstChunkTimeout);
+          if (callbacks.onComplete) callbacks.onComplete();
+        }
+      });
+  });
+}

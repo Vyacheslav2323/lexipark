@@ -3,5 +3,7 @@ export const state = {
   recallBatchTimeout: null,
   hoveredWords: new Set(),
   displayedVocabWords: new Set(),
-  isAnalysisFinished: false
+  isAnalysisFinished: false,
+  translationQueue: [],
+  isTranslating: false
 }; 
