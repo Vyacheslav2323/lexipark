@@ -52,7 +52,115 @@ function trackHoverDuration(koreanWord, duration) {
     });
 }
 
+function processPhotoWithOCR(imageFile) {
+  const formData = new FormData();
+  formData.append('image', imageFile);
+  
+  const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+  
+  return fetch('/analysis/process-photo-analysis/', {
+    method: 'POST',
+    headers: {
+      'X-Requested-With': 'XMLHttpRequest',
+      'X-CSRFToken': csrfToken
+    },
+    body: formData
+  })
+  .then(response => {
+    console.log('Response status:', response.status);
+    console.log('Response headers:', response.headers);
+    
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+    
+    const contentType = response.headers.get('content-type');
+    if (!contentType || !contentType.includes('application/json')) {
+      return response.text().then(text => {
+        console.error('Non-JSON response:', text.substring(0, 200));
+        throw new Error('Server returned non-JSON response. Check if you are logged in.');
+      });
+    }
+    
+    return response.json();
+  })
+  .then(data => {
+    if (data.success) {
+      return data.text;
+    } else {
+      throw new Error(data.error || 'OCR processing failed');
+    }
+  });
+}
+
+function setPhotoImportLoading(isLoading) {
+  const photoImportBtn = document.getElementById('photo-import-btn');
+  const photoFilename = document.getElementById('photo-filename');
+  
+  if (photoImportBtn) {
+    photoImportBtn.disabled = isLoading;
+    if (isLoading) {
+      photoImportBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Processing...';
+    } else {
+      photoImportBtn.innerHTML = '<i class="fas fa-upload me-2"></i>Choose Photo';
+    }
+  }
+  
+  if (photoFilename) {
+    if (isLoading) {
+      photoFilename.textContent = 'Processing image...';
+    }
+  }
+}
+
+function setupPhotoImport() {
+  console.log('setupPhotoImport called');
+  const photoInput = document.getElementById('photo-input');
+  const photoImportBtn = document.getElementById('photo-import-btn');
+  const photoFilename = document.getElementById('photo-filename');
+  const textInput = document.getElementById('textinput');
+  
+  console.log('Elements found:', { photoInput, photoImportBtn, photoFilename, textInput });
+  
+  if (photoImportBtn && photoInput) {
+    console.log('Adding click listener to photo import button');
+    photoImportBtn.addEventListener('click', function() {
+      console.log('Photo import button clicked');
+      photoInput.click();
+    });
+    
+    photoInput.addEventListener('change', function() {
+      console.log('File input change event triggered');
+      console.log('Files:', this.files);
+      if (this.files && this.files[0]) {
+        const file = this.files[0];
+        console.log('Selected file:', file.name, file.type, file.size);
+        photoFilename.textContent = file.name;
+        
+        setPhotoImportLoading(true);
+        
+        processPhotoWithOCR(file)
+          .then(extractedText => {
+            if (textInput && extractedText) {
+              textInput.value = extractedText;
+              showNotification('Text extracted from photo successfully!', 'success');
+            }
+          })
+          .catch(error => {
+            console.error('OCR error:', error);
+            console.error('Error details:', error.message);
+            showNotification('Failed to extract text from photo: ' + error.message, 'error');
+          })
+          .finally(() => {
+            setPhotoImportLoading(false);
+          });
+      }
+    });
+  }
+}
+
 export function setupWordsEvents() {
+  setupPhotoImport();
   document.querySelectorAll('.interactive-word[data-original]').forEach(function(word) {
     const original = word.getAttribute('data-original');
     if (word.classList.contains('in-vocab') || word.style.backgroundColor) {

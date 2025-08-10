@@ -1,0 +1,282 @@
+/* Image Analysis CSS */
+.image-analysis-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.card {
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+}
+
+.card-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 24px;
+    text-align: center;
+}
+
+.card-header h2 {
+    margin: 0;
+    font-size: 2rem;
+    font-weight: 600;
+}
+
+.card-header p {
+    margin: 8px 0 0 0;
+    opacity: 0.9;
+    font-size: 1.1rem;
+}
+
+.file-input-container {
+    position: relative;
+    padding: 40px;
+    text-align: center;
+    border: 2px dashed #ddd;
+    margin: 20px;
+    border-radius: 8px;
+    transition: all 0.3s ease;
+}
+
+.file-input-container.drag-over {
+    border-color: #667eea;
+    background-color: #f8f9ff;
+}
+
+.file-input {
+    position: absolute;
+    opacity: 0;
+    width: 100%;
+    height: 100%;
+    cursor: pointer;
+}
+
+.file-label {
+    display: block;
+    font-size: 1.2rem;
+    color: #666;
+    cursor: pointer;
+    transition: color 0.3s ease;
+}
+
+.file-label:hover {
+    color: #667eea;
+}
+
+.controls {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    padding: 20px;
+    background: #f8f9fa;
+    margin: 0 20px 20px 20px;
+    border-radius: 8px;
+    flex-wrap: wrap;
+}
+
+.controls label {
+    font-weight: 500;
+    color: #333;
+    white-space: nowrap;
+}
+
+.confidence-slider {
+    flex: 1;
+    min-width: 150px;
+}
+
+.confidence-value {
+    font-weight: 600;
+    color: #667eea;
+}
+
+.btn {
+    padding: 12px 24px;
+    border: none;
+    border-radius: 6px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    white-space: nowrap;
+}
+
+.btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.btn:not(:disabled):hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.btn-success {
+    background: #28a745;
+    color: white;
+}
+
+.btn-success:hover {
+    background: #218838;
+}
+
+.loading-spinner {
+    width: 16px;
+    height: 16px;
+    border: 2px solid #ffffff;
+    border-top: 2px solid transparent;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.image-container {
+    position: relative;
+    display: inline-block;
+    margin: 20px;
+    text-align: center;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+}
+
+.ocr-image {
+    display: block;
+    max-width: 100%;
+    height: auto;
+}
+
+.text-overlay {
+    position: absolute;
+    z-index: 10;
+    pointer-events: none;
+    border: 1px solid rgba(0,0,0,0.2);
+    background-color: transparent;
+    transition: all 0.2s ease;
+}
+
+.text-overlay:hover {
+    border-color: rgba(0,0,0,0.5);
+    background-color: rgba(0,0,0,0.05);
+}
+
+/* Keep OCR overlays fully transparent regardless of vocab status */
+.text-overlay.interactive-word,
+.text-overlay.interactive-word:hover,
+.text-overlay.interactive-word:not(.in-vocab),
+.text-overlay.interactive-word:not(.in-vocab):hover {
+    background-color: transparent !important;
+}
+
+/* Hide translation tooltip for OCR overlays */
+.text-overlay.interactive-word::after {
+    display: none !important;
+}
+
+.text-overlay .label {
+    position: absolute;
+    left: 0;
+    top: -20px;
+    pointer-events: none;
+    background: rgba(0,0,0,0.6);
+    color: #fff;
+    font-size: 12px;
+    line-height: 16px;
+    padding: 1px 4px;
+    border-radius: 3px;
+    white-space: nowrap;
+}
+
+.word-info {
+    margin: 20px;
+    padding: 20px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    display: none;
+}
+
+.word-info h4 {
+    margin: 0 0 16px 0;
+    color: #333;
+    font-size: 1.2rem;
+}
+
+.word-info p {
+    margin: 0 0 16px 0;
+    line-height: 1.6;
+    color: #555;
+}
+
+.mt-3 {
+    margin-top: 1rem;
+}
+
+.btn-primary {
+    background: #007bff;
+    color: white;
+}
+
+.btn-primary:hover {
+    background: #0056b3;
+}
+
+.notification {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    padding: 12px 20px;
+    border-radius: 6px;
+    color: white;
+    font-weight: 500;
+    z-index: 1000;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.notification-info {
+    background: #17a2b8;
+}
+
+.notification-success {
+    background: #28a745;
+}
+
+.notification-warning {
+    background: #ffc107;
+    color: #333;
+}
+
+.notification-error {
+    background: #dc3545;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+    .controls {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .btn {
+        justify-content: center;
+    }
+    
+    .image-analysis-container {
+        padding: 10px;
+    }
+    
+    .card-header {
+        padding: 16px;
+    }
+    
+    .card-header h2 {
+        font-size: 1.5rem;
+    }
+}
