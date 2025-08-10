@@ -114,19 +114,27 @@ function setPhotoImportLoading(isLoading) {
 }
 
 function setupPhotoImport() {
+  console.log('setupPhotoImport called');
   const photoInput = document.getElementById('photo-input');
   const photoImportBtn = document.getElementById('photo-import-btn');
   const photoFilename = document.getElementById('photo-filename');
   const textInput = document.getElementById('textinput');
   
+  console.log('Elements found:', { photoInput, photoImportBtn, photoFilename, textInput });
+  
   if (photoImportBtn && photoInput) {
+    console.log('Adding click listener to photo import button');
     photoImportBtn.addEventListener('click', function() {
+      console.log('Photo import button clicked');
       photoInput.click();
     });
     
     photoInput.addEventListener('change', function() {
+      console.log('File input change event triggered');
+      console.log('Files:', this.files);
       if (this.files && this.files[0]) {
         const file = this.files[0];
+        console.log('Selected file:', file.name, file.type, file.size);
         photoFilename.textContent = file.name;
         
         setPhotoImportLoading(true);
