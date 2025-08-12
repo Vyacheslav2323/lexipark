@@ -45,8 +45,8 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{% static 'analysis/js/image_analysis.js' %}"></script>
-<script type="module" src="{% static 'analysis/js/interactive/index.js' %}"></script>
+<script src="{% static 'analysis/js/image_analysis.js' %}?v=3"></script>
+<script type="module" src="{% static 'analysis/js/interactive/index.js' %}?v=3"></script>
 <script>
     // Initialize with Django context data
     window.USER_VOCAB_WORDS = new Set(JSON.parse('{{ vocab_words_json|escapejs }}'));
