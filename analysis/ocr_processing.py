@@ -46,23 +46,38 @@ def _pil_to_jpeg_bytes(pil_img):
     img.save(buf, format="JPEG", quality=85, optimize=True)
     return buf.getvalue()
 
+def _generate_mock_ocr(img_width, img_height):
+    words = ["사과", "학교", "사람", "서울", "한국어"]
+    boxes = [
+        {"x": 0.05, "y": 0.05, "w": 0.22, "h": 0.08},
+        {"x": 0.73, "y": 0.05, "w": 0.22, "h": 0.08},
+        {"x": 0.39, "y": 0.46, "w": 0.22, "h": 0.08},
+        {"x": 0.05, "y": 0.86, "w": 0.22, "h": 0.08},
+        {"x": 0.73, "y": 0.86, "w": 0.22, "h": 0.08},
+    ]
+    items = []
+    for text, b in zip(words, boxes):
+        items.append({
+            "text": text,
+            "confidence": 0.99,
+            "boundingBox": b,
+            "type": "line",
+            "original_line": text
+        })
+    return {
+        "image_size": (img_width, img_height),
+        "total_items": len(items),
+        "filtered_items": len(items),
+        "ocr_data": items
+    }
+
 def build_clova_request(image_file, lang="ko"):
     name = getattr(image_file, "name", "upload")
-    ext = _guess_ext(name)
     pil = _load_pil(image_file)
     if pil is None:
         image_file.seek(0)
-        raw = image_file.read()
-        data = raw
-        fmt = "jpg" if ext not in {"jpg", "jpeg", "png"} else ext
-    else:
-        if _is_supported_ext(ext):
-            image_file.seek(0)
-            data = image_file.read()
-            fmt = ext
-        else:
-            data = _pil_to_jpeg_bytes(pil)
-            fmt = "jpg"
+        pil = Image.open(image_file)
+    data = _pil_to_jpeg_bytes(pil)
     b64_data = base64.b64encode(data).decode("utf-8")
     return {
         "version": "V1",
@@ -70,7 +85,7 @@ def build_clova_request(image_file, lang="ko"):
         "timestamp": int(time.time() * 1000),
         "lang": lang,
         "images": [{
-            "format": fmt,
+            "format": "jpg",
             "name": name,
             "data": b64_data,
             "url": None
@@ -87,72 +102,47 @@ def call_clova_ocr(request_body):
         response = requests.post(CLOVA_OCR_URL, headers=headers, data=json.dumps(request_body), timeout=30)
         response.raise_for_status()
         return response.json()
-    except Exception as e:
-        print(f"Clova OCR API call failed: {e}")
+    except Exception:
         return None
-
-def _generate_mock_ocr(img_width, img_height):
-    words = ["사과", "학교", "사람", "서울", "한국어"]
-    boxes = [
-        {"x": 0.05, "y": 0.05, "w": 0.22, "h": 0.08},
-        {"x": 0.73, "y": 0.05, "w": 0.22, "h": 0.08},
-        {"x": 0.39, "y": 0.46, "w": 0.22, "h": 0.08},
-        {"x": 0.05, "y": 0.86, "w": 0.22, "h": 0.08},
-        {"x": 0.73, "y": 0.86, "w": 0.22, "h": 0.08},
-    ]
-    ocr_items = []
-    for text, b in zip(words, boxes):
-        ocr_items.append({
-            "text": text,
-            "confidence": 0.99,
-            "boundingBox": {"x": b["x"], "y": b["y"], "w": b["w"], "h": b["h"]},
-            "type": "line",
-            "original_line": text
-        })
-    return {
-        "image_size": (img_width, img_height),
-        "total_items": len(ocr_items),
-        "filtered_items": len(ocr_items),
-        "ocr_data": ocr_items
-    }
 
 def extract_text_from_cgimage(cgimg):
     # Legacy function - now uses Clova OCR
     # This maintains compatibility with existing code
     return []
 
-def process_image_file(image_file, min_confidence=0.0, mock=False):
+def process_image_file(image_file, min_confidence=0.0):
     try:
+        if OCR_MOCK:
+            try:
+                pil_img = _load_pil(image_file)
+                if pil_img is None:
+                    raise RuntimeError("mock-size-fallback")
+                w, h = pil_img.size
+            except Exception:
+                w, h = 1000, 1000
+            return _generate_mock_ocr(w, h)
         pil_img = _load_pil(image_file)
         if pil_img is None:
             image_file.seek(0)
             pil_img = Image.open(image_file)
-        img_width, img_height = pil_img.size
-        if mock or OCR_MOCK:
-            return _generate_mock_ocr(img_width, img_height)
+        oriented = ImageOps.exif_transpose(pil_img)
+        img_width, img_height = oriented.size
         request_body = build_clova_request(image_file)
         result = call_clova_ocr(request_body)
         
         if not result:
-            print(f"Clova OCR returned no result")
             return None
-        
-        print(f"Clova OCR response: {result}")
         
         # Parse Clova OCR response
         ocr_data = []
         images = result.get("images", [])
         
-        print(f"Images in response: {images}")
-        
         if images and "fields" in images[0]:
             fields = images[0]["fields"]
-            print(f"Found {len(fields)} fields in image")
             
             for field in fields:
                 text = field.get("inferText", "")
                 confidence = field.get("confidence", 0.0)
-                print(f"Field: text='{text}', confidence={confidence}")
                 
                 if confidence >= 0.0:  # Accept all detected text since Clova returns 0.0 for valid results
                     # Get bounding box information
@@ -194,8 +184,7 @@ def process_image_file(image_file, min_confidence=0.0, mock=False):
             "ocr_data": ocr_data
         }
         
-    except Exception as e:
-        print(f"Error in process_image_file: {e}")
+    except Exception:
         return None
 
 def extract_text_from_uploaded_image(image_file, min_confidence=0.30):

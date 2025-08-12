@@ -184,22 +184,17 @@ def translate_sentence(request):
 def process_photo_ocr(request):
     if request.method == 'POST':
         try:
-            print(f"Processing photo OCR request from user: {request.user}")
-            print(f"Files received: {list(request.FILES.keys())}")
             
             if 'image' not in request.FILES:
                 return JsonResponse({'success': False, 'error': 'No image file provided'})
             
             image_file = request.FILES['image']
-            print(f"Image file: {image_file.name}, size: {image_file.size}, type: {image_file.content_type}")
             
             if not image_file.content_type.startswith('image/'):
                 return JsonResponse({'success': False, 'error': 'File must be an image'})
             
             from .ocr_processing import extract_text_from_uploaded_image
-            print("Starting OCR processing...")
             extracted_text = extract_text_from_uploaded_image(image_file)
-            print(f"OCR result: {extracted_text[:100] if extracted_text else 'None'}")
             
             if extracted_text:
                 return JsonResponse({
@@ -295,8 +290,7 @@ def image_analysis_view(request):
                 return JsonResponse({'success': False, 'error': 'File must be an image'})
             
             from .ocr_processing import process_image_file
-            mock_flag = request.GET.get('mock') == '1' or request.POST.get('mock') == '1'
-            result = process_image_file(image_file, confidence, mock=mock_flag)
+            result = process_image_file(image_file, confidence)
             
             if result:
                 return JsonResponse({
