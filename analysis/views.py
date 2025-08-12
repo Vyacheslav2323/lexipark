@@ -295,7 +295,8 @@ def image_analysis_view(request):
                 return JsonResponse({'success': False, 'error': 'File must be an image'})
             
             from .ocr_processing import process_image_file
-            result = process_image_file(image_file, confidence)
+            mock_flag = request.GET.get('mock') == '1' or request.POST.get('mock') == '1'
+            result = process_image_file(image_file, confidence, mock=mock_flag)
             
             if result:
                 return JsonResponse({

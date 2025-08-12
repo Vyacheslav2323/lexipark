@@ -12,6 +12,7 @@ from django.conf import settings
 # Clova OCR Configuration
 CLOVA_OCR_URL = getattr(settings, 'CLOVA_OCR_URL', None)
 CLOVA_OCR_SECRET = getattr(settings, 'CLOVA_OCR_SECRET', None)
+OCR_MOCK = (os.getenv('OCR_MOCK') == '1') or bool(getattr(settings, 'OCR_MOCK', False))
 
 def _guess_ext(name):
     ctype = mimetypes.guess_type(name)[0]
@@ -90,19 +91,46 @@ def call_clova_ocr(request_body):
         print(f"Clova OCR API call failed: {e}")
         return None
 
+def _generate_mock_ocr(img_width, img_height):
+    words = ["사과", "학교", "사람", "서울", "한국어"]
+    boxes = [
+        {"x": 0.05, "y": 0.05, "w": 0.22, "h": 0.08},
+        {"x": 0.73, "y": 0.05, "w": 0.22, "h": 0.08},
+        {"x": 0.39, "y": 0.46, "w": 0.22, "h": 0.08},
+        {"x": 0.05, "y": 0.86, "w": 0.22, "h": 0.08},
+        {"x": 0.73, "y": 0.86, "w": 0.22, "h": 0.08},
+    ]
+    ocr_items = []
+    for text, b in zip(words, boxes):
+        ocr_items.append({
+            "text": text,
+            "confidence": 0.99,
+            "boundingBox": {"x": b["x"], "y": b["y"], "w": b["w"], "h": b["h"]},
+            "type": "line",
+            "original_line": text
+        })
+    return {
+        "image_size": (img_width, img_height),
+        "total_items": len(ocr_items),
+        "filtered_items": len(ocr_items),
+        "ocr_data": ocr_items
+    }
+
 def extract_text_from_cgimage(cgimg):
     # Legacy function - now uses Clova OCR
     # This maintains compatibility with existing code
     return []
 
-def process_image_file(image_file, min_confidence=0.0):
+def process_image_file(image_file, min_confidence=0.0, mock=False):
     try:
-        request_body = build_clova_request(image_file)
         pil_img = _load_pil(image_file)
         if pil_img is None:
             image_file.seek(0)
             pil_img = Image.open(image_file)
         img_width, img_height = pil_img.size
+        if mock or OCR_MOCK:
+            return _generate_mock_ocr(img_width, img_height)
+        request_body = build_clova_request(image_file)
         result = call_clova_ocr(request_body)
         
         if not result:
