@@ -271,16 +271,7 @@ class ImageAnalysis {
                 const contRect = imageContainer.getBoundingClientRect();
                 const imgOffsetX = imgRect.left - contRect.left;
                 const imgOffsetY = imgRect.top - contRect.top;
-                const dbg = document.createElement('div');
-                dbg.style.position = 'absolute';
-                dbg.style.left = imgOffsetX + 'px';
-                dbg.style.top = imgOffsetY + 'px';
-                dbg.style.width = imgRect.width + 'px';
-                dbg.style.height = imgRect.height + 'px';
-                dbg.style.outline = '2px dashed red';
-                dbg.style.pointerEvents = 'none';
-                dbg.style.zIndex = '999';
-                imageContainer.appendChild(dbg);
+                
                 analysisData.words.forEach((wordData, index) => {
                     if (!wordData || !wordData.surface) return;
                     const base = wordData.base || wordData.surface;

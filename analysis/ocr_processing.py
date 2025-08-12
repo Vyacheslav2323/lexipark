@@ -44,7 +44,7 @@ def _pil_to_jpeg_bytes(pil_img):
         img = img.resize((int(w * scale), int(h * scale)))
     buf = io.BytesIO()
     img.save(buf, format="JPEG", quality=85, optimize=True)
-    return buf.getvalue()
+    return {"bytes": buf.getvalue(), "size": img.size}
 
 def _generate_mock_ocr(img_width, img_height):
     words = ["사과", "학교", "사람", "서울", "한국어"]
@@ -77,9 +77,9 @@ def build_clova_request(image_file, lang="ko"):
     if pil is None:
         image_file.seek(0)
         pil = Image.open(image_file)
-    data = _pil_to_jpeg_bytes(pil)
-    b64_data = base64.b64encode(data).decode("utf-8")
-    return {
+    prepared = _pil_to_jpeg_bytes(pil)
+    b64_data = base64.b64encode(prepared["bytes"]).decode("utf-8")
+    body = {
         "version": "V1",
         "requestId": str(uuid.uuid4()),
         "timestamp": int(time.time() * 1000),
@@ -91,6 +91,7 @@ def build_clova_request(image_file, lang="ko"):
             "url": None
         }]
     }
+    return {"body": body, "size": prepared["size"]}
 
 def call_clova_ocr(request_body):
     headers = {
@@ -126,13 +127,14 @@ def process_image_file(image_file, min_confidence=0.0):
             image_file.seek(0)
             pil_img = Image.open(image_file)
         oriented = ImageOps.exif_transpose(pil_img)
-        img_width, img_height = oriented.size
-        request_body = build_clova_request(image_file)
-        result = call_clova_ocr(request_body)
+        _ = oriented.size
+        req = build_clova_request(image_file)
+        result = call_clova_ocr(req["body"])
         
         if not result:
             return None
         
+        img_width, img_height = req["size"]
         # Parse Clova OCR response
         ocr_data = []
         images = result.get("images", [])
@@ -178,7 +180,7 @@ def process_image_file(image_file, min_confidence=0.0):
         image_file.seek(0)
         
         return {
-            "image_size": (pil_img.width, pil_img.height),
+            "image_size": req["size"],
             "total_items": len(ocr_data),
             "filtered_items": len(ocr_data),
             "ocr_data": ocr_data
