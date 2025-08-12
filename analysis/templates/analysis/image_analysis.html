@@ -51,6 +51,7 @@
     // Initialize with Django context data
     window.USER_VOCAB_WORDS = new Set(JSON.parse('{{ vocab_words_json|escapejs }}'));
     window.CSRF_TOKEN = '{{ csrf_token }}';
+    window.IS_AUTHENTICATED = ('{{ user.is_authenticated|yesno:"true,false" }}' === 'true');
     window.ANALYSIS_URLS = {
         trackHover: '{% url "analysis:track_hover" %}',
         imageAnalysis: '{% url "analysis:image_analysis" %}'

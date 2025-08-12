@@ -70,7 +70,7 @@ class ImageAnalysis {
             const processBtn = document.getElementById('processBtn');
             
             ocrImage.src = e.target.result;
-            imageContainer.style.display = 'block';
+            imageContainer.style.display = 'inline-block';
             processBtn.disabled = false;
             this.state.currentImage = file;
             
@@ -86,6 +86,10 @@ class ImageAnalysis {
     
     async processImageWithOCR() {
         if (!this.state.currentImage) return;
+        if (window.IS_AUTHENTICATED === false) {
+            this.showNotification('Please login to continue', 'warning');
+            return;
+        }
         
         try {
             const processBtn = document.getElementById('processBtn');
@@ -262,6 +266,11 @@ class ImageAnalysis {
                 const spans = this.buildOcrSpans({ ocrItems });
                 let cursor = 0;
                 const fullText = extractedText;
+                const imgEl = document.getElementById('ocrImage');
+                const imgRect = imgEl.getBoundingClientRect();
+                const contRect = imageContainer.getBoundingClientRect();
+                const offsetLeftPct = ((imgRect.left - contRect.left) / contRect.width) * 100;
+                const offsetTopPct = ((imgRect.top - contRect.top) / contRect.height) * 100;
                 analysisData.words.forEach((wordData, index) => {
                     if (!wordData || !wordData.surface) return;
                     const base = wordData.base || wordData.surface;
@@ -291,8 +300,8 @@ class ImageAnalysis {
                         overlay.style.background = this.gradientForColor(green);
                     }
                     overlay.style.position = 'absolute';
-                    overlay.style.left = box.left + '%';
-                    overlay.style.top = box.top + '%';
+                    overlay.style.left = (box.left + offsetLeftPct) + '%';
+                    overlay.style.top = (box.top + offsetTopPct) + '%';
                     overlay.style.width = box.width + '%';
                     overlay.style.height = box.height + '%';
                     overlay.style.border = 'none';
