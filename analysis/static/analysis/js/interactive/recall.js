@@ -24,8 +24,15 @@ export function sendBatchRecallUpdates() {
       interactions: interactions
     })
   })
-    .then(response => response.json())
+    .then(response => {
+      if (response.status === 401 || response.status === 403) {
+        if (window.showNotification) window.showNotification('Please login to continue', 'warning');
+        return null;
+      }
+      return response.json();
+    })
     .then(data => {
+      if (!data) return;
       if (!data.success) {
         console.error('Error in batch recall update:', data.error);
       }

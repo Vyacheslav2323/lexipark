@@ -46,13 +46,17 @@ export function handleFinishAnalysis() {
     })
   })
     .then(response => {
+      if (response.status === 401 || response.status === 403) {
+        showNotification('Please login to continue', 'warning');
+        return null;
+      }
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
       return response.json();
     })
     .then(data => {
-      if (data.success) {
+      if (data && data.success) {
         showNotification(data.message, 'success');
         state.isAnalysisFinished = true;
         finishAnalysis();

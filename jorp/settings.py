@@ -24,7 +24,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-temp-key-for-build-only')
+SECRET_KEY = os.getenv('SECRET_KEY')
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv('DEBUG', 'False').lower() == 'true'
@@ -34,6 +34,7 @@ ALLOWED_HOSTS = [
     '127.0.0.1',
     'lexipark.onrender.com',
     '.onrender.com',  # Allow all onrender.com subdomains
+    '192.168.35.111',
 ]
 
 # CSRF settings
@@ -42,6 +43,7 @@ CSRF_TRUSTED_ORIGINS = [
     'http://127.0.0.1:8000',
     'https://lexipark.onrender.com',
     'https://*.onrender.com',
+    'http://192.168.35.111:8082',
 ]
 
 
@@ -201,5 +203,5 @@ SESSION_COOKIE_HTTPONLY = True
 CSRF_COOKIE_HTTPONLY = True
 
 # Clova OCR Configuration
-CLOVA_OCR_URL = os.getenv('CLOVA_OCR_URL', 'https://sc3y9jhv73.apigw.ntruss.com/custom/v1/45060/e7f1a66c25fa7771cced95aba1bb01b4c64bc1c18bd36dfc5abbc516412521fa/general')
-CLOVA_OCR_SECRET = os.getenv('CLOVA_OCR_SECRET', 'ZWFWSlJwaG5ZVGFZcWJDbnFUVGRKbWdiQVh5eHdhYlU=')
+CLOVA_OCR_URL = os.getenv('CLOVA_OCR_URL')
+CLOVA_OCR_SECRET = os.getenv('CLOVA_OCR_SECRET')

@@ -59,8 +59,15 @@ function trackSentenceHoverDuration(punctuation, duration) {
       duration: duration
     })
   })
-    .then(response => response.json())
+    .then(response => {
+      if (response.status === 401 || response.status === 403) {
+        showNotification('Please login to continue', 'warning');
+        return null;
+      }
+      return response.json();
+    })
     .then(data => {
+      if (!data) return;
       if (data.success) {
         console.log('Sentence hover tracked:', data.message);
       } else {
@@ -84,8 +91,15 @@ function trackHoverDuration(koreanWord, duration) {
       duration: duration
     })
   })
-    .then(response => response.json())
+    .then(response => {
+      if (response.status === 401 || response.status === 403) {
+        showNotification('Please login to continue', 'warning');
+        return null;
+      }
+      return response.json();
+    })
     .then(data => {
+      if (!data) return;
       if (!data.success) {
         console.error('Error tracking hover:', data.error);
       }
@@ -144,6 +158,10 @@ function processPhotoWithOCR(imageFile) {
     body: formData
   })
   .then(response => {
+    if (response.status === 401 || response.status === 403) {
+      showNotification('Please login to continue', 'warning');
+      throw new Error('Auth required');
+    }
     console.log('Response status:', response.status);
     console.log('Response headers:', response.headers);
     

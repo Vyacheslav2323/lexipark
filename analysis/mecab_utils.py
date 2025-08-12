@@ -47,7 +47,7 @@ def tokenize(text):
     return tokens
 
 def analyze_token(surface, pos, features):
-    if pos in ['NNG', 'NNP', 'NP', 'NR', 'MAG', 'MAJ', 'MM']:
+    if pos in ['NNG', 'NNP', 'NP', 'NR', 'MAG', 'MAJ', 'MM', 'XR']:
         return surface
     if 'VV' in pos or 'VA' in pos or 'VX' in pos:
         if 'Inflect' in features:
@@ -132,8 +132,8 @@ def create_interactive_sentence(sentence, results, translations, vocab_words=Non
         if start_pos > current_pos:
             html_parts.append(f'<span>{sentence[current_pos:start_pos]}</span>')
         
-        # Only make specific POS tags interactive (nouns, adverbs, verbs)
-        is_interactive = (pos in ['NNG', 'NNP', 'NP', 'NR', 'MAG', 'MAJ', 'MM'] or 
+        # Only make specific POS tags interactive (nouns, adverbs, verbs, roots)
+        is_interactive = (pos in ['NNG', 'NNP', 'NP', 'NR', 'MAG', 'MAJ', 'MM', 'XR'] or 
                          'VV' in pos or 'VA' in pos or 'VX' in pos)
         
         if is_interactive:

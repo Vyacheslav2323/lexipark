@@ -100,10 +100,7 @@ class ImageAnalysis {
             formData.append('image', this.state.currentImage);
             formData.append('confidence', '0');
             
-            const url = new URL(window.ANALYSIS_URLS.imageAnalysis, window.location.origin)
-            const useMock = new URLSearchParams(window.location.search).get('mock') === '1'
-            if (useMock) url.searchParams.set('mock', '1')
-            const response = await fetch(url.toString(), {
+            const response = await fetch(window.ANALYSIS_URLS.imageAnalysis, {
                 method: 'POST',
                 body: formData,
                 headers: {
