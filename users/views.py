@@ -14,6 +14,9 @@ from rest_framework.permissions import IsAuthenticated
 
 # Create your views here.
 
+def privacy_view(request):
+    return render(request, 'users/privacy.html')
+
 def login_view(request):
     if request.method == 'POST':
         form = AuthenticationForm(request, data=request.POST)

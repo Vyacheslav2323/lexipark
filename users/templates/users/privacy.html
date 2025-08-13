@@ -1,0 +1,35 @@
+{% extends 'users/base.html' %}
+{% block title %}Privacy Policy · LexiPark{% endblock %}
+{% block content %}
+<div class="card shadow-sm">
+    <div class="card-header">
+        <h5 class="mb-0">Privacy Policy</h5>
+    </div>
+    <div class="card-body">
+        <p>LexiPark annotates Korean text on pages you visit and lets you save words to your personal vocabulary.</p>
+        <h6>Data We Collect</h6>
+        <ul>
+            <li>Authentication information: tokens to keep you signed in.</li>
+            <li>Website content: page text may be processed to identify words and, when you request it, minimal text segments may be sent to our server for analysis or translation.</li>
+            <li>User activity: clicks on annotated words to save them to your vocabulary.</li>
+        </ul>
+        <h6>What We Do Not Collect</h6>
+        <p>We do not collect personal communications, financial, health, precise location, or complete web browsing history.</p>
+        <h6>Use of Data</h6>
+        <p>Data is used only to provide annotation, translation, and vocabulary features. We do not sell data or share it with third parties.</p>
+        <h6>Storage & Retention</h6>
+        <p>Authentication tokens and cached translations are stored in your browser. Saved vocabulary is stored in your LexiPark account. You can clear browser storage or delete your account to remove data.</p>
+        <h6>Security</h6>
+        <p>We use HTTPS and industry-standard controls. No remote code is executed by the extension.</p>
+        <h6>Children</h6>
+        <p>Not directed to children under 13.</p>
+        <h6>Contact</h6>
+        <p>Email: support@lexipark.onrender.com</p>
+    </div>
+    <div class="card-footer text-end">
+        <a href="{% url 'home' %}" class="btn btn-primary">Back to Home</a>
+    </div>
+</div>
+{% endblock %}
+
+

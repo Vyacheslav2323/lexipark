@@ -1,0 +1,22 @@
+{
+  "manifest_version": 3,
+  "name": "LexiPark",
+  "version": "0.1.0",
+  "permissions": ["storage", "activeTab", "scripting"],
+  "host_permissions": [
+    "http://localhost:8082/*",
+    "http://127.0.0.1:8082/*",
+    "https://lexipark.onrender.com/*"
+  ],
+  "action": { "default_popup": "popup.html" },
+  "background": { "service_worker": "background.js" },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}
+
+

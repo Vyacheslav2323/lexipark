@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <link rel="stylesheet" href="theme-popup.css" />
+  <title>LexiPark</title>
+  </head>
+<body class="root">
+  <div class="lp-card">
+    <div class="lp-card-header">LexiPark</div>
+    <div class="lp-card-body">
+      <div id="auth">
+        <input id="username" class="lp-input" placeholder="Username" />
+        <input id="password" class="lp-input" type="password" placeholder="Password" />
+        <button id="login" class="lp-button">Login</button>
+        <button id="register" class="lp-button">Register</button>
+        <div id="status" class="lp-muted"></div>
+      </div>
+      <div id="greeting" class="lp-greeting" style="display:none">
+        Hello, <span id="uname"></span>!
+        <button id="logout" class="lp-button" style="margin-top:8px">Logout</button>
+      </div>
+      <button id="annotate-inplace" class="lp-button lp-primary">Analyze the Page</button>
+      <button id="my-vocab" class="lp-button">My Vocab</button>
+    </div>
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>
+
