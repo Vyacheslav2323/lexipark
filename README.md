@@ -1,4 +1,4 @@
-# Jorp - Korean Vocabulary Learning Platform
+# LexiPark - Korean Vocabulary Learning Platform
 
 A Django-based web application for learning Korean vocabulary through interactive text analysis and spaced repetition.
 

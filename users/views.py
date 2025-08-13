@@ -9,6 +9,8 @@ from django.views.decorators.http import require_POST
 from vocab.models import Vocabulary
 from vocab.bayesian_recall import update_vocabulary_recall
 from .forms import CustomUserCreationForm
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
 
 # Create your views here.
 
@@ -106,3 +108,52 @@ def save_vocabulary_view(request):
             'success': False,
             'message': str(e)
         }, status=500)
+ 
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def api_save_vocabulary(request):
+    try:
+        korean_word = (request.data.get('korean_word') or '').trim() if hasattr(str, 'trim') else (request.data.get('korean_word') or '').strip()
+        pos = (request.data.get('pos') or '').strip()
+        grammar_info = request.data.get('grammar_info') or ''
+        translation = (request.data.get('translation') or '').strip()
+        if not korean_word:
+            return JsonResponse({'success': False, 'message': 'Missing korean_word'}, status=400)
+        if not translation:
+            translation = korean_word
+        vocab, created = Vocabulary.objects.get_or_create(
+            user=request.user,
+            korean_word=korean_word,
+            defaults={
+                'pos': pos,
+                'grammar_info': grammar_info,
+                'english_translation': translation,
+                'alpha_prior': 1.0,
+                'beta_prior': 9.0,
+                'retention_rate': 0.1
+            }
+        )
+        if not created:
+            if pos:
+                vocab.pos = pos
+            vocab.grammar_info = grammar_info
+            if translation:
+                vocab.english_translation = translation
+            vocab.save()
+        else:
+            vocab = update_vocabulary_recall(vocab, had_lookup=True)
+            vocab.save()
+        return JsonResponse({'success': True, 'created': created, 'retention_rate': vocab.retention_rate})
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)}, status=500)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def api_me(request):
+    return JsonResponse({'success': True, 'username': request.user.username})
+
+@login_required
+def me_session(request):
+    return JsonResponse({'success': True, 'username': request.user.username})
+

@@ -18,9 +18,8 @@
                             <button id="btn-dont" class="btn btn-outline-danger">Don't know</button>
                         </div>
                         <div class="mb-3">
-                            <span class="me-3">R*: <span id="rstar">-</span></span>
+                            <span class="me-3">Vocab size: <span id="rstar">-</span></span>
                             <span class="me-3">Misses: <span id="misses">0</span></span>
-                            <span>Expected vocab size: <span id="evs">0</span></span>
                         </div>
                         <div class="small text-muted" id="status"></div>
                     </div>
@@ -100,6 +99,15 @@ function pickNextRank(prev, knew) {
 
 async function loadRanks() {
   const res = await fetch('/vocab/test/ranks/', { credentials: 'same-origin' })
+  if (res.status === 401) {
+    document.getElementById('status').textContent = 'Please login to continue'
+    throw new Error('Unauthorized')
+  }
+  const ct = res.headers.get('content-type') || ''
+  if (!ct.includes('application/json')) {
+    document.getElementById('status').textContent = 'Please login to continue'
+    throw new Error('Non-JSON response')
+  }
   const data = await res.json()
   if (!data.success) throw new Error(data.error || 'Failed to load ranks')
   ranks = data.words.map(w => w.rank)

@@ -5,6 +5,8 @@ from django.contrib.auth.decorators import login_required
 import json
 from .mecab_utils import analyze_sentence, translate_results, create_interactive_sentence, create_interactive_text_with_sentences, get_papago_translation
 from vocab.models import Vocabulary
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import AllowAny, IsAuthenticated
 
 def analyze_view(request):
     interactive_html = None
@@ -372,3 +374,57 @@ def translate_word(request):
         except Exception as e:
             return JsonResponse({'success': False, 'error': str(e)})
     return JsonResponse({'success': False, 'error': 'Invalid request'})
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def api_analyze_text(request):
+    try:
+        text = request.data.get('text', '')
+        if not text.strip():
+            return JsonResponse({'success': False, 'error': 'Empty text'}, status=400)
+        results = analyze_sentence(text)
+        user_vocab_qs = []
+        vocab_words = set()
+        vocab_map = {}
+        if request.user and request.user.is_authenticated:
+            user_vocab_qs = Vocabulary.objects.filter(user=request.user)
+            vocab_words = set(user_vocab_qs.values_list('korean_word', flat=True))
+            vocab_map = {v.korean_word: v.english_translation for v in user_vocab_qs}
+        try:
+            from vocab.models import GlobalTranslation
+            bases = [b for (_, b, _, _) in results if b]
+            globals_qs = GlobalTranslation.objects.filter(korean_word__in=bases)
+            global_map = {g.korean_word: g.english_translation for g in globals_qs}
+        except Exception:
+            global_map = {}
+        words = []
+        for (surface, base, pos, grammar_info) in results:
+            if base is None:
+                continue
+            words.append({
+                'surface': surface,
+                'base': base,
+                'pos': pos,
+                'grammar_info': grammar_info,
+                'translation': global_map.get(base) or vocab_map.get(base),
+                'in_vocab': base in vocab_words
+            })
+        return JsonResponse({'success': True, 'words': words})
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def api_analyze_html(request):
+    try:
+        text = request.data.get('text', '')
+        if not text.strip():
+            return JsonResponse({'success': False, 'error': 'Empty text'}, status=400)
+        vocab_words = set()
+        if request.user and request.user.is_authenticated:
+            qs = Vocabulary.objects.filter(user=request.user)
+            vocab_words = set(qs.values_list('korean_word', flat=True))
+        html = create_interactive_text_with_sentences(text, vocab_words)
+        return JsonResponse({ 'success': True, 'html': html })
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
