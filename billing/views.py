@@ -148,6 +148,8 @@ def create_subscription(request):
         else:
             plan_id = _ensure_plan_for_price(token, 15000)
     logger.info('subscription.create.plan plan_id=%s user=%s', plan_id, user.id)
+    if not plan_id or not str(plan_id).startswith('P-'):
+        return JsonResponse({ 'success': False, 'error': 'invalid_plan_id', 'plan_id': plan_id }, status=400)
     return_url = request.build_absolute_uri('/users/profile/')
     cancel_url = request.build_absolute_uri('/users/profile/')
     mode = os.getenv('PAYPAL_MODE', 'sandbox').lower()
