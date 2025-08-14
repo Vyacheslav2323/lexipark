@@ -9,6 +9,7 @@ urlpatterns = [
     path('logout/', views.logout_view, name='logout'),
     path('register/', views.register_view, name='register'),
     path('profile/', views.profile_view, name='profile'),
+    path('stats/', views.stats_view, name='stats'),
     path('privacy/', views.privacy_view, name='privacy'),
     path('save-vocabulary/', views.save_vocabulary_view, name='save_vocabulary'),
     path('api/v1/save-vocabulary/', views.api_save_vocabulary, name='api_save_vocabulary'),

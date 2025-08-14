@@ -2,6 +2,7 @@ from django.shortcuts import render
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.decorators import login_required
+from billing.decorators import subscription_required
 import json
 from .mecab_utils import analyze_sentence, translate_results, create_interactive_sentence, create_interactive_text_with_sentences, get_papago_translation
 from vocab.models import Vocabulary
@@ -182,6 +183,7 @@ def translate_sentence(request):
     return JsonResponse({'error': 'Invalid request'})
 
 @login_required
+@subscription_required
 @csrf_exempt
 def process_photo_ocr(request):
     if request.method == 'POST':
@@ -219,6 +221,7 @@ def process_photo_ocr(request):
     return JsonResponse({'success': False, 'error': 'Invalid request method'})
 
 @login_required
+@subscription_required
 @csrf_exempt
 def analyze_ocr_text(request):
     if request.method == 'POST':
@@ -279,6 +282,8 @@ def analyze_ocr_text(request):
     
     return JsonResponse({'success': False, 'error': 'Invalid request method'})
 
+@login_required
+@subscription_required
 def image_analysis_view(request):
     if request.method == 'POST':
         try:

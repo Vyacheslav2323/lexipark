@@ -1,6 +1,7 @@
 from django.shortcuts import render
 from django.http import JsonResponse
 from django.contrib.auth.decorators import login_required
+from billing.decorators import subscription_required
 from django.views.decorators.http import require_POST
 from django.views.decorators.csrf import csrf_exempt
 from django.db import transaction
@@ -11,12 +12,14 @@ import json
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated, AllowAny
 
+@login_required
+@subscription_required
 def vocabulary_test(request):
     return render(request, 'vocab/vocabulary_test.html')
 
+@login_required
+@subscription_required
 def get_test_ranks(request):
-    if not request.user.is_authenticated:
-        return JsonResponse({'success': False, 'error': 'Authentication required'}, status=401)
     try:
         limit = int(request.GET.get('limit', '5000'))
     except Exception:
@@ -26,6 +29,7 @@ def get_test_ranks(request):
     return JsonResponse({'success': True, 'words': words})
 
 @login_required
+@subscription_required
 @require_POST
 @csrf_exempt
 def update_alpha_prior(request):
@@ -66,6 +70,7 @@ def _defaults_for_word(word):
     return {'pos': pos, 'grammar_info': grammar_info, 'english_translation': translation}
 
 @login_required
+@subscription_required
 @require_POST
 @csrf_exempt
 def batch_update_adaptive(request):

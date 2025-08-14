@@ -61,6 +61,7 @@ INSTALLED_APPS = [
     'users',
     'analysis',
     'vocab',
+    'billing',
 ]
 
 if DEBUG:
@@ -242,3 +243,10 @@ CORS_ALLOWED_ORIGIN_REGEXES = [
 # Clova OCR Configuration
 CLOVA_OCR_URL = os.getenv('CLOVA_OCR_URL')
 CLOVA_OCR_SECRET = os.getenv('CLOVA_OCR_SECRET')
+
+# PayPal
+PAYPAL_MODE = os.getenv('PAYPAL_MODE', 'sandbox')
+PAYPAL_CLIENT_ID = os.getenv('PAYPAL_CLIENT_ID')
+PAYPAL_SECRET = os.getenv('PAYPAL_SECRET')
+PAYPAL_WEBHOOK_ID = os.getenv('PAYPAL_WEBHOOK_ID')
+PAYPAL_PLAN_ID = os.getenv('PAYPAL_PLAN_ID')

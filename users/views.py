@@ -3,6 +3,7 @@ from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.forms import AuthenticationForm
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from billing.decorators import subscription_required
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
@@ -11,6 +12,9 @@ from vocab.bayesian_recall import update_vocabulary_recall
 from .forms import CustomUserCreationForm
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
+from django.utils import timezone
+from datetime import timedelta
+from billing.models import Subscription
 
 # Create your views here.
 
@@ -53,6 +57,7 @@ def register_view(request):
     return render(request, 'users/register.html', {'form': form})
 
 @login_required
+@subscription_required
 def profile_view(request):
     vocabularies = Vocabulary.objects.filter(user=request.user)
     context = {
@@ -62,6 +67,39 @@ def profile_view(request):
     return render(request, 'users/profile.html', context)
 
 @login_required
+def stats_view(request):
+    end = timezone.now().date()
+    start = end - timedelta(days=6)
+    days = [start + timedelta(days=i) for i in range(7)]
+    vocab = Vocabulary.objects.filter(user=request.user, created_at__date__gte=start, created_at__date__lte=end)
+    reviewed = Vocabulary.objects.filter(user=request.user, last_reviewed__date__gte=start, last_reviewed__date__lte=end)
+    added_map = {d: 0 for d in days}
+    reviewed_map = {d: 0 for d in days}
+    for v in vocab:
+        added_map[v.created_at.date()] = added_map.get(v.created_at.date(), 0) + 1
+    for v in reviewed:
+        reviewed_map[v.last_reviewed.date()] = reviewed_map.get(v.last_reviewed.date(), 0) + 1
+    series = [{ 'date': d.strftime('%Y-%m-%d'), 'added': added_map.get(d, 0), 'reviewed': reviewed_map.get(d, 0) } for d in days]
+    sub = Subscription.objects.filter(user=request.user).first()
+    active = False
+    if sub and sub.status == 'ACTIVE':
+        active = True
+    elif sub and sub.trial_end_at and sub.trial_end_at > timezone.now():
+        active = True
+    label = 'gold' if active else 'basic'
+    total_words = Vocabulary.objects.filter(user=request.user).count()
+    ctx = {
+        'series': series,
+        'username': request.user.username,
+        'email': request.user.email,
+        'date_joined': request.user.date_joined,
+        'subscription_label': label,
+        'total_words': total_words,
+    }
+    return render(request, 'users/stats.html', ctx)
+
+@login_required
+@subscription_required
 @require_POST
 @csrf_exempt
 def save_vocabulary_view(request):

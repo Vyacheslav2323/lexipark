@@ -29,9 +29,9 @@
                     <i class="fas fa-question-circle me-1"></i>Vocabulary Test
                 </a>
                 {% if user.is_authenticated %}
-                    <span class="navbar-text me-3">
+                    <a class="nav-link me-3" href="{% url 'users:stats' %}">
                         <i class="fas fa-user me-1"></i>Welcome, {{ user.username }}!
-                    </span>
+                    </a>
                     <a class="nav-link text-danger" href="{% url 'users:logout' %}">
                         <i class="fas fa-sign-out-alt me-1"></i>Logout
                     </a>

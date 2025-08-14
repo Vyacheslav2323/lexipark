@@ -1,0 +1,71 @@
+{% extends 'users/base.html' %}
+
+{% block title %}Get Gold Status{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-md-10 col-lg-8">
+    <div class="card shadow">
+      <div class="card-header bg-warning text-dark">
+        <h4 class="mb-0"><i class="fas fa-crown me-2"></i>Go Gold</h4>
+      </div>
+      <div class="card-body">
+        {% if active %}
+          <div class="alert alert-success">You already have Gold access.</div>
+          <a href="{% url 'users:stats' %}" class="btn btn-outline-success">View your stats</a>
+        {% else %}
+          <p>Unlock Image Analysis and Vocabulary features with a 7-day free trial, then {{ display_price }} {{ display_currency }}/month.</p>
+          <button id="start-trial" class="btn btn-success"><i class="fas fa-crown me-2"></i>Start 7-day free trial</button>
+          <hr>
+          <div class="input-group mt-2" style="max-width:420px;">
+            <input id="promo-code" type="text" class="form-control" placeholder="Have a promo code? Enter here">
+            <button id="redeem" class="btn btn-outline-primary">Redeem</button>
+          </div>
+          <div id="redeem-status" class="mt-2"></div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const btn = document.getElementById('start-trial')
+  if (!btn) return
+  btn.addEventListener('click', async () => {
+    btn.disabled = true
+    btn.textContent = 'Redirecting to PayPal…'
+    try{
+      const r = await fetch('/billing/create-subscription/')
+      const d = await r.json()
+      if (d.approval_url) window.location.href = d.approval_url
+      else { btn.disabled = false; btn.textContent = 'Start 7-day free trial' }
+    }catch(_){ btn.disabled = false; btn.textContent = 'Start 7-day free trial' }
+  })
+  const redeem = document.getElementById('redeem')
+  if (redeem) redeem.addEventListener('click', async () => {
+    const status = document.getElementById('redeem-status')
+    const input = document.getElementById('promo-code')
+    const code = (input.value || '').trim()
+    if (!code) return
+    redeem.disabled = true
+    status.textContent = 'Applying code...'
+    try{
+      const r = await fetch('/billing/redeem/', { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ code }) })
+      const d = await r.json().catch(()=>({}))
+      if (r.ok && d && d.success) {
+        status.textContent = 'Code applied. You now have access.'
+        window.location.reload()
+      } else {
+        status.textContent = (d && d.error) || 'Failed to apply code'
+      }
+    }catch(e){ status.textContent = 'Failed to apply code' }
+    redeem.disabled = false
+  })
+})
+</script>
+{% endblock %}
+
+

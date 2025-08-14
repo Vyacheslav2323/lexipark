@@ -17,6 +17,14 @@
                 </div>
             </div>
             <div class="card-body p-4">
+                <div class="mb-3 d-flex align-items-center justify-content-between">
+                    <div>
+                        <span id="sub-status" class="badge bg-secondary">Checking subscription…</span>
+                    </div>
+                    <button id="start-trial" class="btn btn-success">
+                        <i class="fas fa-crown me-2"></i>Start 7-day free trial
+                    </button>
+                </div>
                 {% if vocabularies %}
                     <div class="table-responsive">
                         <table class="table table-hover">
@@ -75,4 +83,46 @@
         </div>
     </div>
 </div>
+<script>
+document.addEventListener('DOMContentLoaded', async () => {
+  const statusEl = document.getElementById('sub-status')
+  const btn = document.getElementById('start-trial')
+  async function refresh() {
+    try{
+      const r = await fetch('/billing/status/')
+      const d = await r.json()
+      if (d.active) {
+        statusEl.textContent = `Active: ${d.status}`
+        statusEl.className = 'badge bg-success'
+        btn.style.display = 'none'
+      } else {
+        statusEl.textContent = 'Inactive'
+        statusEl.className = 'badge bg-danger'
+        btn.style.display = ''
+      }
+    }catch(_){
+      statusEl.textContent = 'Unknown'
+      statusEl.className = 'badge bg-secondary'
+    }
+  }
+  btn.addEventListener('click', async () => {
+    btn.disabled = true
+    btn.textContent = 'Redirecting to PayPal…'
+    try{
+      const r = await fetch('/billing/create-subscription/')
+      const d = await r.json()
+      if (d.approval_url) {
+        window.location.href = d.approval_url
+      } else {
+        btn.disabled = false
+        btn.textContent = 'Start 7-day free trial'
+      }
+    }catch(_){
+      btn.disabled = false
+      btn.textContent = 'Start 7-day free trial'
+    }
+  })
+  refresh()
+})
+</script>
 {% endblock %} 
