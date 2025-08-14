@@ -137,19 +137,38 @@ def create_subscription(request):
     token = _paypal_token()
     sub = Subscription.objects.filter(user=user).first()
     plan_id = None
-    if sub and sub.discount_plan_id:
-        plan_id = sub.discount_plan_id
-    else:
-        if PromoRedemption.objects.filter(user=user, promo__kind=PromoCode.KIND_DISCOUNT_9999).exists():
+    env_regular = os.getenv('PAYPAL_PLAN_ID') or ''
+    env_discount = os.getenv('PAYPAL_PLAN_ID_9999') or ''
+    stored = sub.discount_plan_id if sub and sub.discount_plan_id else ''
+    stored_valid = bool(stored) and stored.startswith('P-')
+    has_discount = PromoRedemption.objects.filter(user=user, promo__kind=PromoCode.KIND_DISCOUNT_9999).exists() or stored_valid
+
+    if has_discount:
+        if env_discount.startswith('P-'):
+            plan_id = env_discount
+            logger.info('subscription.create.plan.source env_discount plan_id=%s', plan_id)
+        elif stored_valid:
+            plan_id = stored
+            logger.info('subscription.create.plan.source stored_discount plan_id=%s', plan_id)
+        else:
             plan_id = _ensure_discount_plan(token)
+            logger.info('subscription.create.plan.source ensured_discount plan_id=%s', plan_id)
             if sub:
                 sub.discount_plan_id = plan_id
-                sub.save()
+                sub.save(update_fields=['discount_plan_id'])
+    else:
+        if env_regular.startswith('P-'):
+            plan_id = env_regular
+            logger.info('subscription.create.plan.source env_regular plan_id=%s', plan_id)
         else:
             plan_id = _ensure_plan_for_price(token, 15000)
+            logger.info('subscription.create.plan.source ensured_regular plan_id=%s', plan_id)
+
+    if sub and stored and not stored_valid:
+        sub.discount_plan_id = None
+        sub.save(update_fields=['discount_plan_id'])
+
     logger.info('subscription.create.plan plan_id=%s user=%s', plan_id, user.id)
-    if not plan_id or not str(plan_id).startswith('P-'):
-        return JsonResponse({ 'success': False, 'error': 'invalid_plan_id', 'plan_id': plan_id }, status=400)
     return_url = request.build_absolute_uri('/users/profile/')
     cancel_url = request.build_absolute_uri('/users/profile/')
     mode = os.getenv('PAYPAL_MODE', 'sandbox').lower()
