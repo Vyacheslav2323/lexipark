@@ -251,7 +251,7 @@ PAYPAL_SECRET = os.getenv('PAYPAL_SECRET')
 PAYPAL_WEBHOOK_ID = os.getenv('PAYPAL_WEBHOOK_ID')
 PAYPAL_PLAN_ID = os.getenv('PAYPAL_PLAN_ID')
 
-# Logging for billing
+# Logging for billing (silenced)
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
@@ -262,8 +262,8 @@ LOGGING = {
     },
     'loggers': {
         'billing': {
-            'handlers': ['console'],
-            'level': 'INFO',
+            'handlers': [],
+            'level': 'CRITICAL',
             'propagate': False,
         },
     },
