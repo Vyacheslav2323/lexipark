@@ -8,8 +8,12 @@ from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import redirect
 from django.utils.dateparse import parse_datetime
+from urllib.parse import urlparse, urlunparse
 from .models import Subscription, PromoCode, PromoRedemption
 from django.shortcuts import render
+import logging
+
+logger = logging.getLogger('billing')
 
 
 def _paypal_base():
@@ -19,6 +23,7 @@ def _paypal_base():
 def _paypal_token():
     cid = os.getenv('PAYPAL_CLIENT_ID')
     secret = os.getenv('PAYPAL_SECRET')
+    logger.info('paypal.token.request')
     r = requests.post(
         f"{_paypal_base()}/v1/oauth2/token",
         auth=(cid, secret),
@@ -26,6 +31,7 @@ def _paypal_token():
         headers={ 'Accept': 'application/json' }
     )
     r.raise_for_status()
+    logger.info('paypal.token.ok')
     return r.json()['access_token']
 
 
@@ -40,12 +46,14 @@ def _ensure_product(access_token):
         lr.raise_for_status()
         for p in lr.json().get('products', []):
             if p.get('name') == 'LexiPark Premium':
+                logger.info('paypal.product.reuse id=%s', p.get('id'))
                 return p.get('id')
     except Exception:
         pass
     payload = { 'name': 'LexiPark Premium', 'type': 'SERVICE', 'category': 'SOFTWARE' }
     pr = requests.post(f"{_paypal_base()}/v1/catalogs/products", headers={ **h, 'PayPal-Request-Id': str(uuid.uuid4()) }, data=json.dumps(payload))
     pr.raise_for_status()
+    logger.info('paypal.product.created id=%s', pr.json().get('id'))
     return pr.json()['id']
 
 
@@ -59,6 +67,7 @@ def _find_plan(access_token, product_id, price_value):
                 if bc.get('tenure_type') == 'REGULAR':
                     fp = (bc.get('pricing_scheme') or {}).get('fixed_price') or {}
                     if fp.get('currency_code') == 'KRW' and fp.get('value') == str(price_value):
+                        logger.info('paypal.plan.found id=%s price=%sKRW', plan.get('id'), price_value)
                         return plan.get('id')
     except Exception:
         return None
@@ -83,8 +92,10 @@ def _create_plan(access_token, product_id, price_value):
     if r.status_code == 422:
         pid = _find_plan(access_token, product_id, price_value)
         if pid:
+            logger.info('paypal.plan.reused_after_422 id=%s price=%s', pid, price_value)
             return pid
     r.raise_for_status()
+    logger.info('paypal.plan.created id=%s price=%s', r.json().get('id'), price_value)
     return r.json()['id']
 
 
@@ -122,6 +133,7 @@ def subscription_status(request):
 @login_required
 def create_subscription(request):
     user = request.user
+    logger.info('subscription.create.start user=%s', user.id)
     token = _paypal_token()
     sub = Subscription.objects.filter(user=user).first()
     plan_id = None
@@ -134,9 +146,20 @@ def create_subscription(request):
                 sub.discount_plan_id = plan_id
                 sub.save()
         else:
-            plan_id = _ensure_plan(token)
+            plan_id = _ensure_plan_for_price(token, 15000)
+    logger.info('subscription.create.plan plan_id=%s user=%s', plan_id, user.id)
     return_url = request.build_absolute_uri('/users/profile/')
     cancel_url = request.build_absolute_uri('/users/profile/')
+    mode = os.getenv('PAYPAL_MODE', 'sandbox').lower()
+    if mode == 'live':
+        def _https(u):
+            p = urlparse(u)
+            scheme = 'https'
+            netloc = p.netloc
+            return urlunparse((scheme, netloc, p.path, p.params, p.query, p.fragment))
+        return_url = _https(return_url)
+        cancel_url = _https(cancel_url)
+    logger.info('subscription.create.urls return=%s cancel=%s', return_url, cancel_url)
     payload = {
         'plan_id': plan_id,
         'application_context': {
@@ -148,13 +171,22 @@ def create_subscription(request):
             'cancel_url': cancel_url
         }
     }
-    r = requests.post(
-        f"{_paypal_base()}/v1/billing/subscriptions",
-        headers={ 'Content-Type': 'application/json', 'Authorization': f'Bearer {token}' },
-        data=json.dumps(payload)
-    )
-    r.raise_for_status()
-    data = r.json()
+    try:
+        r = requests.post(
+            f"{_paypal_base()}/v1/billing/subscriptions",
+            headers={ 'Content-Type': 'application/json', 'Accept': 'application/json', 'Authorization': f'Bearer {token}' },
+            data=json.dumps(payload)
+        )
+        r.raise_for_status()
+        data = r.json()
+    except requests.HTTPError as e:
+        body = None
+        try:
+            body = e.response.json()
+        except Exception:
+            body = e.response.text if e.response is not None else str(e)
+        logger.error('subscription.create.error status=%s details=%s', getattr(e.response, 'status_code', None), body)
+        return JsonResponse({ 'success': False, 'error': 'paypal_subscription_create_failed', 'details': body }, status=e.response.status_code if e.response is not None else 500)
     approve = next((l['href'] for l in data.get('links', []) if l.get('rel') == 'approve'), None)
     sub, _ = Subscription.objects.get_or_create(user=user)
     sub.plan_id = plan_id
@@ -163,6 +195,7 @@ def create_subscription(request):
     if not sub.trial_end_at:
         sub.trial_end_at = datetime.now(timezone.utc) + timedelta(days=7)
     sub.save()
+    logger.info('subscription.create.ok id=%s user=%s', data.get('id'), user.id)
     return JsonResponse({ 'approval_url': approve, 'id': data.get('id') })
 
 
@@ -173,6 +206,7 @@ def webhook(request):
     except Exception:
         return JsonResponse({'success': False}, status=400)
     event_type = data.get('event_type')
+    logger.info('webhook.event %s', event_type)
     resource = data.get('resource', {})
     sub_id = resource.get('id') or resource.get('subscription_id')
     sub = Subscription.objects.filter(paypal_subscription_id=sub_id).first()
@@ -256,8 +290,10 @@ def redeem_promo(request):
         elif promo.kind == PromoCode.KIND_DISCOUNT_9999:
             pass
         PromoRedemption.objects.create(promo=promo, user=request.user)
+        logger.info('promo.redeem.ok code=%s user=%s kind=%s', promo.code, request.user.id, promo.kind)
         return JsonResponse({'success': True})
     except Exception as e:
+        logger.error('promo.redeem.error %s', str(e))
         return JsonResponse({'success': False, 'error': str(e)}, status=500)
 
 
