@@ -59,7 +59,7 @@ def register_view(request):
 @login_required
 @subscription_required
 def profile_view(request):
-    vocabularies = Vocabulary.objects.filter(user=request.user)
+    vocabularies = Vocabulary.objects.filter(user=request.user).order_by('-hover_count', '-total_hover_time', '-created_at')
     context = {
         'vocabularies': vocabularies,
         'total_words': vocabularies.count()

@@ -87,7 +87,7 @@ document.getElementById('annotate-inplace').addEventListener('click', async () =
         if (uname) uname.textContent = username || ''
         if (annotate) annotate.style.display = ''
     } catch(_) {
-      if (annotate) annotate.style.display = 'none'
+      
     }
   }
   const reg = document.getElementById('register')
@@ -104,7 +104,7 @@ document.getElementById('annotate-inplace').addEventListener('click', async () =
     if (auth) auth.style.display = ''
     if (greeting) greeting.style.display = 'none'
     if (uname) uname.textContent = ''
-    if (annotate) annotate.style.display = 'none'
+    
   })
 })()
 

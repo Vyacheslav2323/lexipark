@@ -1,3 +1,4 @@
+import { translateWord as apiTranslateWord, translateSentence as apiTranslateSentence, trackHover as apiTrackHover, trackSentenceHover as apiTrackSentenceHover } from './api.js'
 import { addRecallInteraction } from './recall.js';
 import { saveToVocabulary } from './vocabulary.js';
 import { state } from './state.js';
@@ -26,8 +27,7 @@ function runTranslationQueue() {
   const next = state.translationQueue.shift();
   if (!next) return;
   state.isTranslating = true;
-  fetch('/analysis/translate-word/', {method:'POST', headers:{'Content-Type':'application/json','X-Requested-With':'XMLHttpRequest'}, body: JSON.stringify({word: next})})
-    .then(r=>r.json())
+  apiTranslateWord({ word: next })
     .then(d=>{
       const t = d && d.success ? d.translation : '';
       document.querySelectorAll('.interactive-word[data-original="'+next+'"]').forEach(node=>{
@@ -48,24 +48,7 @@ import { showNotification, showSentenceTranslation, hideSentenceTranslation } fr
 import { handleAnalyzeSubmit } from './analysis.js';
 
 function trackSentenceHoverDuration(punctuation, duration) {
-  fetch('/analysis/track-sentence-hover/', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Requested-With': 'XMLHttpRequest'
-    },
-    body: JSON.stringify({
-      punctuation: punctuation,
-      duration: duration
-    })
-  })
-    .then(response => {
-      if (response.status === 401 || response.status === 403) {
-        showNotification('Please login to continue', 'warning');
-        return null;
-      }
-      return response.json();
-    })
+  apiTrackSentenceHover({ punctuation, duration })
     .then(data => {
       if (!data) return;
       if (data.success) {
@@ -80,24 +63,7 @@ function trackSentenceHoverDuration(punctuation, duration) {
 }
 
 function trackHoverDuration(koreanWord, duration) {
-  fetch('/analysis/track-hover/', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Requested-With': 'XMLHttpRequest'
-    },
-    body: JSON.stringify({
-      korean_word: koreanWord,
-      duration: duration
-    })
-  })
-    .then(response => {
-      if (response.status === 401 || response.status === 403) {
-        showNotification('Please login to continue', 'warning');
-        return null;
-      }
-      return response.json();
-    })
+  apiTrackHover({ word: koreanWord, duration })
     .then(data => {
       if (!data) return;
       if (!data.success) {
@@ -247,29 +213,18 @@ export function setupWordsEvents() {
 export function setupSentenceEvents() {
   document.querySelectorAll('.sentence-punctuation').forEach(function(punctuation) {
     let hoverStartTime = null;
-    let translation = null;
+    let currentTooltip = null;
     
     punctuation.addEventListener('mouseenter', function() {
       hoverStartTime = Date.now();
       
-      if (!translation) {
-        const sentence = this.getAttribute('data-sentence');
-        fetch('/analysis/translate-sentence/', {
-          method: 'POST',
-          headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({sentence: sentence})
-        })
-        .then(response => response.json())
+      const sentence = this.getAttribute('data-sentence') || '';
+      apiTranslateSentence({ sentence })
         .then(data => {
-          translation = data.translation;
-          showSentenceTranslation(this, translation);
+          const translation = data && data.translation ? data.translation : '';
+          currentTooltip = showSentenceTranslation(this, translation || sentence);
         })
-        .catch(error => {
-          console.error('Translation error:', error);
-        });
-      } else {
-        showSentenceTranslation(this, translation);
-      }
+        .catch(() => {})
     });
     
     punctuation.addEventListener('mouseleave', function() {
@@ -279,6 +234,7 @@ export function setupSentenceEvents() {
         hoverStartTime = null;
       }
       hideSentenceTranslation();
+      if (currentTooltip && currentTooltip.remove) { currentTooltip.remove(); currentTooltip = null; }
     });
   });
 } 

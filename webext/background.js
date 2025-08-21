@@ -8,27 +8,60 @@ async function getRefresh() {
   const { refresh } = await chrome.storage.local.get(['refresh'])
   return refresh || null
 }
+async function getApiBase() {
+  const { api_base } = await chrome.storage.local.get(['api_base'])
+  return api_base || API_BASE
+}
+async function ensureDefaultApiBase() {
+  const { api_base } = await chrome.storage.local.get(['api_base'])
+  if (!api_base) await chrome.storage.local.set({ api_base: API_BASE })
+}
+chrome.runtime.onInstalled.addListener(() => { void ensureDefaultApiBase() })
+chrome.runtime.onStartup?.addListener?.(() => { void ensureDefaultApiBase() })
 
-async function apiFetch(path, opts={}) {
+async function apiFetchAt(base, path, opts={}) {
   let token = await getToken()
   const headers = Object.assign({ 'Content-Type': 'application/json' }, opts.headers || {})
   if (token) headers.Authorization = `Bearer ${token}`
-  let res = await fetch(`${API_BASE}${path}`, { ...opts, headers })
+  let res = await fetch(`${base}${path}`, { ...opts, headers })
   if (res.status === 401) {
     const refresh = await getRefresh()
     if (refresh) {
-      const r = await fetch(`${API_BASE}/api/v1/token/refresh/`, { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ refresh }) })
+      const r = await fetch(`${base}/api/v1/token/refresh/`, { method:'POST', headers:{ 'Content-Type':'application/json' }, body: JSON.stringify({ refresh }) })
       const data = await r.json().catch(()=>null)
       if (data && data.access) {
         await chrome.storage.local.set({ access: data.access })
         token = data.access
         const headers2 = Object.assign({ 'Content-Type': 'application/json' }, opts.headers || {})
         headers2.Authorization = `Bearer ${token}`
-        res = await fetch(`${API_BASE}${path}`, { ...opts, headers: headers2 })
+        res = await fetch(`${base}${path}`, { ...opts, headers: headers2 })
       }
     }
   }
   return res
+}
+
+async function apiFetch(path, opts={}) {
+  const base = await getApiBase()
+  return apiFetchAt(base, path, opts)
+}
+
+async function apiFetchWithFallback(paths, opts={}) {
+  const baseCandidates = [await getApiBase(), 'http://127.0.0.1:8082', 'http://localhost:8082', 'https://lexipark.onrender.com']
+  for (const base of baseCandidates) {
+    for (const p of paths) {
+      const res = await apiFetchAt(base, p, opts)
+      if (res.status !== 404) return res
+    }
+  }
+  return apiFetch(paths[paths.length-1] || '/', opts)
+}
+
+function safeSendMessage(tabId, msg) {
+  try {
+    if (!tabId) return
+    chrome.tabs.sendMessage(tabId, msg, () => { void chrome.runtime.lastError })
+  } catch(_) { }
 }
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
@@ -37,14 +70,15 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       const text = (msg.text || '').trim()
       if (!text) return sendResponse({ ok:false, error:'Empty selection' })
       try {
-        const res = await apiFetch('/analysis/api/v1/analyze/', { method: 'POST', body: JSON.stringify({ text }) })
-        const data = await res.json()
-        // deliver to content script on the same tab
-        if (sender.tab && sender.tab.id) {
-          chrome.tabs.sendMessage(sender.tab.id, { type:'analyze-result', data })
-        }
-        if (msg.tabId) {
-          chrome.tabs.sendMessage(msg.tabId, { type:'analyze-result', data })
+        const res = await apiFetchWithFallback(['/analysis/api/analyze', '/analysis/api/v1/analyze/'], { method: 'POST', body: JSON.stringify({ text }) })
+        const data = await res.json().catch(()=>({}))
+        const targetId = msg.tabId || (sender && sender.tab && sender.tab.id)
+        if (data && data.html) {
+          safeSendMessage(targetId, { type:'analyze-html-result', data })
+        } else if (data && (Array.isArray(data.words) || typeof data.words !== 'undefined')) {
+          safeSendMessage(targetId, { type:'analyze-result', data })
+        } else {
+          safeSendMessage(targetId, { type:'annotate-inplace-html', data })
         }
         sendResponse({ ok:true })
       } catch (e) {
@@ -55,10 +89,15 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       const text = (msg.text || '').trim()
       if (!text) return sendResponse({ ok:false, error:'Empty page' })
       try {
-        const res = await apiFetch('/analysis/api/v1/analyze-html/', { method: 'POST', body: JSON.stringify({ text }) })
-        const data = await res.json()
-        if (msg.tabId) {
-          chrome.tabs.sendMessage(msg.tabId, { type:'analyze-html-result', data })
+        const res = await apiFetchWithFallback(['/analysis/api/analyze', '/analysis/api/v1/analyze-html/', '/analysis/api/v1/analyze/'], { method: 'POST', body: JSON.stringify({ text }) })
+        const data = await res.json().catch(()=>({}))
+        const targetId = msg.tabId || (sender && sender.tab && sender.tab.id)
+        if (data && data.html) {
+          safeSendMessage(targetId, { type:'analyze-html-result', data })
+        } else if (data && (Array.isArray(data.words) || typeof data.words !== 'undefined')) {
+          safeSendMessage(targetId, { type:'analyze-result', data })
+        } else {
+          safeSendMessage(targetId, { type:'annotate-inplace-html', data })
         }
         sendResponse({ ok:true })
       } catch (e) {
@@ -69,9 +108,10 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       const text = (msg.text || '').trim()
       if (!text) return sendResponse({ ok:false, error:'Empty page' })
       try {
-        const res = await apiFetch('/analysis/api/v1/analyze/', { method: 'POST', body: JSON.stringify({ text }) })
+        const res = await apiFetchWithFallback(['/analysis/api/analyze', '/analysis/api/v1/analyze/'], { method: 'POST', body: JSON.stringify({ text }) })
         const data = await res.json()
-        if (msg.tabId) chrome.tabs.sendMessage(msg.tabId, { type:'annotate-inplace', data })
+        const targetId = msg.tabId || (sender && sender.tab && sender.tab.id)
+        safeSendMessage(targetId, { type:'annotate-inplace-html', data })
         sendResponse({ ok:true })
       } catch (e) {
         sendResponse({ ok:false, error:String(e) })
@@ -81,7 +121,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       const word = (msg.word || '').trim()
       if (!word) return sendResponse({ ok:false, error:'Empty word' })
       try {
-        const res = await apiFetch('/analysis/translate-word/', { method: 'POST', body: JSON.stringify({ word }) })
+        const res = await apiFetchWithFallback(['/analysis/api/translate-word', '/analysis/translate-word/'], { method: 'POST', body: JSON.stringify({ word }) })
         const data = await res.json()
         sendResponse({ ok:true, data })
       } catch (e) {
@@ -96,7 +136,8 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   ;(async () => {
     if (msg.type === 'save-vocab') {
       try {
-        let res = await apiFetch('/users/api/v1/save-vocabulary/', { method:'POST', body: JSON.stringify({
+        let base = await getApiBase()
+        let res = await apiFetchAt(base, '/users/api/v1/save-vocabulary/', { method:'POST', body: JSON.stringify({
           korean_word: msg.korean_word || '',
           pos: msg.pos || '',
           grammar_info: msg.grammar_info || '',
@@ -108,7 +149,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           form.append('pos', msg.pos || '')
           form.append('grammar_info', msg.grammar_info || '')
           form.append('translation', msg.translation || '')
-          res = await fetch(`${API_BASE}/users/save-vocabulary/`, { method:'POST', body: form, credentials:'include' })
+          res = await fetch(`${base}/users/save-vocabulary/`, { method:'POST', body: form, credentials:'include' })
         }
         const data = await res.json().catch(()=>({}))
         sendResponse({ ok: res.ok, data })

@@ -1,3 +1,4 @@
+import { batchRecall as apiBatchRecall } from './api.js'
 import { state } from './state.js';
 
 export function addRecallInteraction(koreanWord, hadLookup) {
@@ -14,23 +15,7 @@ export function sendBatchRecallUpdates() {
   if (state.recallInteractions.length === 0) return;
   const interactions = [...state.recallInteractions];
   state.recallInteractions.length = 0;
-  fetch('/analysis/batch-update-recalls/', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Requested-With': 'XMLHttpRequest'
-    },
-    body: JSON.stringify({
-      interactions: interactions
-    })
-  })
-    .then(response => {
-      if (response.status === 401 || response.status === 403) {
-        if (window.showNotification) window.showNotification('Please login to continue', 'warning');
-        return null;
-      }
-      return response.json();
-    })
+  apiBatchRecall({ interactions })
     .then(data => {
       if (!data) return;
       if (!data.success) {

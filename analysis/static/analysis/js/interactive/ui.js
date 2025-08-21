@@ -53,6 +53,7 @@ export function showSentenceTranslation(element, translation) {
   setTimeout(() => {
     tooltip.style.opacity = '1';
   }, 10);
+  return tooltip;
 }
 
 export function hideSentenceTranslation() {

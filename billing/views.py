@@ -5,7 +5,7 @@ import requests
 import uuid
 from django.http import JsonResponse, HttpResponse
 from django.views.decorators.csrf import csrf_exempt
-from django.contrib.auth.decorators import login_required
+from django.contrib.auth.decorators import login_required, user_passes_test
 from django.shortcuts import redirect
 from django.utils.dateparse import parse_datetime
 from urllib.parse import urlparse, urlunparse
@@ -14,6 +14,111 @@ from django.shortcuts import render
 import logging
 
 logger = logging.getLogger('billing')
+
+
+def is_admin(user):
+    return user.is_authenticated and user.is_staff
+
+
+@user_passes_test(is_admin)
+def grant_free_access(request):
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'POST method required'}, status=405)
+    
+    try:
+        data = json.loads(request.body)
+        user_identifier = data.get('user_identifier')
+        access_type = data.get('access_type', 'trial')
+        trial_days = data.get('trial_days', 30)
+        
+        if not user_identifier:
+            return JsonResponse({'success': False, 'error': 'user_identifier required'}, status=400)
+        
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        
+        if '@' in user_identifier:
+            user = User.objects.get(email=user_identifier)
+        else:
+            user = User.objects.get(username=user_identifier)
+        
+        sub, created = Subscription.objects.get_or_create(user=user)
+        
+        if access_type == 'lifetime':
+            sub.lifetime_free = True
+            sub.status = 'ACTIVE'
+            message = f'Granted lifetime free access to {user.username}'
+        else:
+            from django.utils.timezone import now
+            trial_extension = now() + timedelta(days=trial_days)
+            sub.trial_end_at = trial_extension
+            message = f'Extended trial for {user.username} by {trial_days} days'
+        
+        sub.save()
+        
+        return JsonResponse({
+            'success': True,
+            'message': message,
+            'user': {
+                'username': user.username,
+                'email': user.email
+            },
+            'subscription': {
+                'lifetime_free': sub.lifetime_free,
+                'trial_end_at': sub.trial_end_at.isoformat() if sub.trial_end_at else None,
+                'status': sub.status
+            }
+        })
+        
+    except User.DoesNotExist:
+        return JsonResponse({'success': False, 'error': f'User not found: {user_identifier}'}, status=404)
+    except Exception as e:
+        logger.error(f'Error granting free access: {e}')
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+@user_passes_test(is_admin)
+def revoke_free_access(request):
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'POST method required'}, status=405)
+    
+    try:
+        data = json.loads(request.body)
+        user_identifier = data.get('user_identifier')
+        
+        if not user_identifier:
+            return JsonResponse({'success': False, 'error': 'user_identifier required'}, status=400)
+        
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        
+        if '@' in user_identifier:
+            user = User.objects.get(email=user_identifier)
+        else:
+            user = User.objects.get(username=user_identifier)
+        
+        try:
+            sub = Subscription.objects.get(user=user)
+            sub.lifetime_free = False
+            sub.save()
+            message = f'Revoked lifetime free access from {user.username}'
+        except Subscription.DoesNotExist:
+            message = f'No subscription found for {user.username}'
+        
+        return JsonResponse({
+            'success': True,
+            'message': message,
+            'user': {
+                'username': user.username,
+                'email': user.email
+            }
+        })
+        
+    except User.DoesNotExist:
+        return JsonResponse({'success': False, 'error': f'User not found: {user_identifier}'}, status=404)
+    except Exception as e:
+        logger.error(f'Error revoking free access: {e}')
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
 
 
 def _paypal_base():
@@ -316,5 +421,10 @@ def redeem_promo(request):
     except Exception as e:
         logger.error('promo.redeem.error %s', str(e))
         return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+@user_passes_test(is_admin)
+def admin_free_access_page(request):
+    return render(request, 'billing/admin_free_access.html')
 
 

@@ -1,0 +1,305 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block title %}Grant Free Access - Admin{% endblock %}
+
+{% block extrahead %}
+<style>
+    .free-access-form {
+        max-width: 600px;
+        margin: 20px auto;
+        padding: 20px;
+        background: #f9f9f9;
+        border-radius: 8px;
+        border: 1px solid #ddd;
+    }
+    .form-group {
+        margin-bottom: 15px;
+    }
+    .form-group label {
+        display: block;
+        margin-bottom: 5px;
+        font-weight: bold;
+    }
+    .form-group input, .form-group select {
+        width: 100%;
+        padding: 8px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        font-size: 14px;
+    }
+    .form-group textarea {
+        width: 100%;
+        padding: 8px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        font-size: 14px;
+        min-height: 100px;
+        resize: vertical;
+    }
+    .btn {
+        background: #79aec8;
+        color: white;
+        padding: 10px 20px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 14px;
+        margin-right: 10px;
+    }
+    .btn:hover {
+        background: #417690;
+    }
+    .btn-danger {
+        background: #ba2121;
+    }
+    .btn-danger:hover {
+        background: #a41515;
+    }
+    .result {
+        margin-top: 20px;
+        padding: 15px;
+        border-radius: 4px;
+    }
+    .result.success {
+        background: #d4edda;
+        border: 1px solid #c3e6cb;
+        color: #155724;
+    }
+    .result.error {
+        background: #f8d7da;
+        border: 1px solid #f5c6cb;
+        color: #721c24;
+    }
+    .bulk-actions {
+        margin-top: 30px;
+        padding: 20px;
+        background: #fff;
+        border-radius: 8px;
+        border: 1px solid #ddd;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="free-access-form">
+    <h2>Grant Free Access to Users</h2>
+    
+    <form id="freeAccessForm">
+        <div class="form-group">
+            <label for="userIdentifier">User (Username or Email):</label>
+            <input type="text" id="userIdentifier" name="userIdentifier" placeholder="Enter username or email" required>
+        </div>
+        
+        <div class="form-group">
+            <label for="accessType">Access Type:</label>
+            <select id="accessType" name="accessType">
+                <option value="trial">Extend Trial</option>
+                <option value="lifetime">Grant Lifetime Free</option>
+            </select>
+        </div>
+        
+        <div class="form-group" id="trialDaysGroup">
+            <label for="trialDays">Trial Extension (days):</label>
+            <input type="number" id="trialDays" name="trialDays" value="30" min="1" max="365">
+        </div>
+        
+        <button type="submit" class="btn">Grant Access</button>
+        <button type="button" class="btn btn-danger" onclick="revokeAccess()">Revoke Access</button>
+    </form>
+    
+    <div id="result"></div>
+</div>
+
+<div class="bulk-actions">
+    <h3>Bulk Operations</h3>
+    
+    <div class="form-group">
+        <label for="bulkUsers">Multiple Users (one per line):</label>
+        <textarea id="bulkUsers" name="bulkUsers" placeholder="Enter usernames or emails, one per line"></textarea>
+    </div>
+    
+    <div class="form-group">
+        <label for="bulkAccessType">Access Type:</label>
+        <select id="bulkAccessType" name="bulkAccessType">
+            <option value="trial">Extend Trial</option>
+            <option value="lifetime">Grant Lifetime Free</option>
+        </select>
+    </div>
+    
+    <div class="form-group" id="bulkTrialDaysGroup">
+        <label for="bulkTrialDays">Trial Extension (days):</label>
+        <input type="number" id="bulkTrialDays" name="bulkTrialDays" value="30" min="1" max="365">
+    </div>
+    
+    <button type="button" class="btn" onclick="bulkGrantAccess()">Bulk Grant Access</button>
+</div>
+
+<script>
+document.getElementById('accessType').addEventListener('change', function() {
+    const trialDaysGroup = document.getElementById('trialDaysGroup');
+    trialDaysGroup.style.display = this.value === 'trial' ? 'block' : 'none';
+});
+
+document.getElementById('bulkAccessType').addEventListener('change', function() {
+    const bulkTrialDaysGroup = document.getElementById('bulkTrialDaysGroup');
+    bulkTrialDaysGroup.style.display = this.value === 'trial' ? 'block' : 'none';
+});
+
+document.getElementById('freeAccessForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    grantAccess();
+});
+
+function grantAccess() {
+    const userIdentifier = document.getElementById('userIdentifier').value;
+    const accessType = document.getElementById('accessType').value;
+    const trialDays = document.getElementById('trialDays').value;
+    
+    const data = {
+        user_identifier: userIdentifier,
+        access_type: accessType,
+        trial_days: parseInt(trialDays)
+    };
+    
+    fetch('/billing/admin/grant-free-access/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(data => {
+        showResult(data.success ? 'success' : 'error', data.message || data.error);
+        if (data.success) {
+            document.getElementById('userIdentifier').value = '';
+        }
+    })
+    .catch(error => {
+        showResult('error', 'Error: ' + error.message);
+    });
+}
+
+function revokeAccess() {
+    const userIdentifier = document.getElementById('userIdentifier').value;
+    
+    if (!userIdentifier) {
+        showResult('error', 'Please enter a username or email');
+        return;
+    }
+    
+    const data = {
+        user_identifier: userIdentifier
+    };
+    
+    fetch('/billing/admin/revoke-free-access/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(data => {
+        showResult(data.success ? 'success' : 'error', data.message || data.error);
+        if (data.success) {
+            document.getElementById('userIdentifier').value = '';
+        }
+    })
+    .catch(error => {
+        showResult('error', 'Error: ' + error.message);
+    });
+}
+
+function bulkGrantAccess() {
+    const bulkUsers = document.getElementById('bulkUsers').value;
+    const bulkAccessType = document.getElementById('bulkAccessType').value;
+    const bulkTrialDays = document.getElementById('bulkTrialDays').value;
+    
+    if (!bulkUsers.trim()) {
+        showResult('error', 'Please enter users to process');
+        return;
+    }
+    
+    const users = bulkUsers.trim().split('\n').filter(u => u.trim());
+    
+    if (users.length === 0) {
+        showResult('error', 'No valid users found');
+        return;
+    }
+    
+    showResult('success', `Processing ${users.length} users...`);
+    
+    let processed = 0;
+    let errors = 0;
+    
+    users.forEach((user, index) => {
+        setTimeout(() => {
+            const data = {
+                user_identifier: user.trim(),
+                access_type: bulkAccessType,
+                trial_days: parseInt(bulkTrialDays)
+            };
+            
+            fetch('/billing/admin/grant-free-access/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: JSON.stringify(data)
+            })
+            .then(response => response.json())
+            .then(data => {
+                processed++;
+                if (!data.success) {
+                    errors++;
+                }
+                
+                if (processed === users.length) {
+                    const message = `Bulk operation completed. Processed: ${processed}, Errors: ${errors}`;
+                    showResult('success', message);
+                    document.getElementById('bulkUsers').value = '';
+                }
+            })
+            .catch(error => {
+                processed++;
+                errors++;
+                if (processed === users.length) {
+                    showResult('error', `Bulk operation completed with errors. Processed: ${processed}, Errors: ${errors}`);
+                }
+            });
+        }, index * 100);
+    });
+}
+
+function showResult(type, message) {
+    const resultDiv = document.getElementById('result');
+    resultDiv.className = `result ${type}`;
+    resultDiv.textContent = message;
+    resultDiv.style.display = 'block';
+    
+    setTimeout(() => {
+        resultDiv.style.display = 'none';
+    }, 5000);
+}
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+</script>
+{% endblock %}

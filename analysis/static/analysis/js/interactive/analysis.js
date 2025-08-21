@@ -1,3 +1,4 @@
+import { analyze as apiAnalyze, finish as apiFinish, batchRecall as apiBatchRecall } from './api.js'
 import { showNotification } from './ui.js';
 import { state } from './state.js';
 
@@ -35,44 +36,41 @@ export function handleFinishAnalysis() {
   }
   if (spinner) spinner.style.display = 'inline-block';
   if (finishBtn) finishBtn.disabled = true;
-  fetch('/analysis/finish-analysis/', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Requested-With': 'XMLHttpRequest'
-    },
-    body: JSON.stringify({
-      text: text
-    })
-  })
-    .then(response => {
-      if (response.status === 401 || response.status === 403) {
-        showNotification('Please login to continue', 'warning');
-        return null;
-      }
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-      return response.json();
-    })
-    .then(data => {
-      if (data && data.success) {
-        showNotification(data.message, 'success');
-        state.isAnalysisFinished = true;
-        finishAnalysis();
-        window.location.reload();
-      } else {
-        showNotification('Error finishing analysis: ' + data.error, 'error');
-      }
-    })
-    .catch(error => {
-      console.error('Network error in finish analysis:', error);
-      showNotification('Network error while finishing analysis: ' + error.message, 'error');
-    })
-    .finally(() => {
+  const progressEl = (function(){
+    const existing = document.getElementById('finish-progress');
+    if (existing) return existing;
+    const el = document.createElement('span');
+    el.id = 'finish-progress';
+    el.className = 'text-muted ms-2';
+    if (finishBtn && finishBtn.parentNode) finishBtn.parentNode.appendChild(el);
+    return el;
+  })();
+  const pairs = splitIntoSentences(text);
+  const sentences = pairs.map(p => (p[0] || '').trim()).filter(Boolean);
+  const chunkSize = 10;
+  const chunks = [];
+  for (let i=0;i<sentences.length;i+=chunkSize) chunks.push(sentences.slice(i,i+chunkSize));
+  let done = 0;
+  let totalAdded = 0;
+  function updateProgress(){ if (progressEl) progressEl.textContent = `Saving ${Math.min(done*chunkSize, sentences.length)}/${sentences.length}…`; }
+  function next(){
+    if (done >= chunks.length) {
+      showNotification(`Added ${totalAdded} words to vocabulary`, 'success');
+      state.isAnalysisFinished = true;
       if (spinner) spinner.style.display = 'none';
       if (finishBtn) finishBtn.disabled = false;
-    });
+      window.location.reload();
+      return;
+    }
+    const chunk = chunks[done];
+    fetch('/analysis/api/finish-batch', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }, body: JSON.stringify({ sentences: chunk }) })
+      .then(r => r.json())
+      .then(d => { totalAdded += (d && d.added_count) ? d.added_count : 0; })
+      .catch(() => {})
+      .finally(() => { done += 1; updateProgress(); next(); });
+  }
+  updateProgress();
+  next();
 }
 
 export function finishAnalysis() {
@@ -81,18 +79,7 @@ export function finishAnalysis() {
   if (nonHoveredWords.length > 0) {
     const successInteractions = nonHoveredWords.map(word => [word, false]);
     state.recallInteractions.push(...successInteractions);
-    fetch('/analysis/batch-update-recalls/', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-Requested-With': 'XMLHttpRequest'
-      },
-      body: JSON.stringify({
-        interactions: successInteractions
-      }),
-      keepalive: true
-    })
-      .then(response => response.json())
+    apiBatchRecall({ interactions: successInteractions })
       .then(data => {
         if (!data.success) {
           console.error('Error finishing analysis:', data.error);
@@ -164,13 +151,17 @@ export function setupAnalysis() {
 } 
 
 function splitIntoSentences(text) {
-  const parts = text.split(/([.!?])/);
+  const re = /([.!?…]|[。！？])/g;
   const out = [];
-  for (let i = 0; i < parts.length; i += 2) {
-    const s = (parts[i] || '').trim();
-    const p = parts[i + 1] || '';
-    if (s) out.push([s, p]);
+  let i = 0;
+  let m;
+  while ((m = re.exec(text)) !== null) {
+    const s = text.slice(i, m.index);
+    const p = m[0];
+    out.push([s, p]);
+    i = m.index + p.length;
   }
+  if (i < text.length) out.push([text.slice(i), '']);
   return out;
 }
 
@@ -181,42 +172,48 @@ function startProgressiveAnalysis(text, callbacks = {}) {
   if (finishBtn) finishBtn.setAttribute('data-text', text);
   if (finishBtn) finishBtn.classList.remove('d-none');
   if (finishBtn) finishBtn.style.display = 'block';
+  const loader = document.createElement('div');
+  loader.id = 'analysis-loading';
+  loader.style.cssText = 'margin-top:12px;color:#6c757d;text-align:center;';
+  let dots = 0;
+  loader.textContent = 'Analyzing';
+  const tick = setInterval(() => { dots = (dots + 1) % 4; loader.textContent = 'Analyzing' + '.'.repeat(dots); }, 400);
+  container.appendChild(loader);
   const pairs = splitIntoSentences(text);
-  if (pairs.length === 0) {
-    if (callbacks.onComplete) callbacks.onComplete();
-    return;
-  }
-  let pending = pairs.length;
+  if (pairs.length === 0) { clearInterval(tick); loader.remove(); if (callbacks.onComplete) callbacks.onComplete(); return; }
+  let currentIndex = 0;
   let firstChunkSeen = false;
-  const firstChunkTimeout = setTimeout(() => {
-    if (!firstChunkSeen && callbacks.onFirstChunk) callbacks.onFirstChunk();
-  }, 4000);
-  pairs.forEach(([s, p]) => {
-    fetch('/analysis/analyze-sentence/', {method: 'POST', headers: {'Content-Type': 'application/json','X-Requested-With':'XMLHttpRequest'}, body: JSON.stringify({sentence: s})})
-      .then(r => r.json())
-      .then(d => {
-        if (!d.success) return;
-        const frag = document.createElement('div');
-        frag.innerHTML = `<span style="font-size:18px;line-height:1.6;">${d.html}</span>` + (p ? `<span class="sentence-punctuation" data-sentence="${s}">${p}</span>` : '');
-        container.appendChild(frag);
-        frag.querySelectorAll('.interactive-word').forEach(w => { if (window.bindWordElementEvents) window.bindWordElementEvents(w); });
-        if (window.setupSentenceEvents) window.setupSentenceEvents();
-        if (window.queueSequentialTranslations) {
-          const originals = Array.from(new Set(Array.from(frag.querySelectorAll('.interactive-word[data-original]')).map(w => w.getAttribute('data-original'))));
-          if (originals.length) window.queueSequentialTranslations(originals);
+  let lastSentence = '';
+  function processNext() {
+    if (currentIndex >= pairs.length) { clearInterval(tick); loader.remove(); if (callbacks.onComplete) callbacks.onComplete(); return; }
+    const [s, p] = pairs[currentIndex];
+    if (!s.trim()) {
+      if (s.length) { container.appendChild(document.createTextNode(s)); container.appendChild(loader); }
+      if (p) { const ps = document.createElement('span'); ps.className='sentence-punctuation'; ps.style.position='relative'; ps.style.display='inline-block'; ps.style.cursor='default'; ps.setAttribute('data-sentence', lastSentence); ps.textContent=p; container.appendChild(ps); container.appendChild(loader); }
+      currentIndex += 1; processNext(); return;
+    }
+    fetch('/analysis/api/analyze-sentence', { method:'POST', headers:{'Content-Type':'application/json','X-Requested-With':'XMLHttpRequest'}, body: JSON.stringify({ sentence: s }) })
+      .then(r=>r.json())
+      .then(d=>{
+        if (d && d.success) {
+          const span = document.createElement('span');
+          span.style.cssText = 'font-size:18px;line-height:1.6;';
+          span.innerHTML = d.html;
+          container.appendChild(span);
+          if (p) { const ps = document.createElement('span'); ps.className='sentence-punctuation'; ps.style.position='relative'; ps.style.display='inline-block'; ps.style.cursor='default'; ps.setAttribute('data-sentence', s); ps.textContent=p; container.appendChild(ps); }
+          container.appendChild(loader);
+          span.querySelectorAll('.interactive-word').forEach(w => { if (window.bindWordElementEvents) window.bindWordElementEvents(w); });
+          if (window.setupSentenceEvents) window.setupSentenceEvents();
+          if (window.queueSequentialTranslations) {
+            const originals = Array.from(new Set(Array.from(span.querySelectorAll('.interactive-word[data-original]')).map(w => w.getAttribute('data-original'))));
+            if (originals.length) window.queueSequentialTranslations(originals);
+          }
+          lastSentence = s;
+          if (!firstChunkSeen && callbacks.onFirstChunk) { firstChunkSeen = true; callbacks.onFirstChunk(); }
         }
-        if (!firstChunkSeen) {
-          firstChunkSeen = true;
-          if (callbacks.onFirstChunk) callbacks.onFirstChunk();
-        }
+        currentIndex += 1; processNext();
       })
-      .catch(() => {})
-      .finally(() => {
-        pending -= 1;
-        if (pending === 0) {
-          clearTimeout(firstChunkTimeout);
-          if (callbacks.onComplete) callbacks.onComplete();
-        }
-      });
-  });
+      .catch(()=>{ currentIndex += 1; processNext(); })
+  }
+  processNext();
 }

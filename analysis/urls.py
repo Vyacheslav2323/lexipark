@@ -1,5 +1,6 @@
 from django.urls import path
-from .views import analyze_view, track_hover, track_sentence_hover, finish_analysis_view, batch_update_recalls_view, translate_sentence, process_photo_ocr, image_analysis_view, analyze_ocr_text, analyze_sentence_chunk, translate_word, api_analyze_text, api_analyze_html
+from .views import analyze_view, track_hover, track_sentence_hover, process_photo_ocr, image_analysis_view
+from .api import analyze_api, finish_api, batch_recall_api, translate_word_api, translate_sentence_api, analyze_sentence_api, finish_sentence_api, finish_batch_api
 
 app_name = 'analysis'
 
@@ -9,13 +10,13 @@ urlpatterns = [
 
     path('track-hover/', track_hover, name='track_hover'),
     path('track-sentence-hover/', track_sentence_hover, name='track_sentence_hover'),
-    path('finish-analysis/', finish_analysis_view, name='finish_analysis'),
-    path('batch-update-recalls/', batch_update_recalls_view, name='batch_update_recalls'),
-    path('translate-sentence/', translate_sentence, name='translate_sentence'),
-    path('analyze-sentence/', analyze_sentence_chunk, name='analyze_sentence'),
-    path('translate-word/', translate_word, name='translate_word'),
     path('process-photo-analysis/', process_photo_ocr, name='process_photo_analysis'),
-    path('analyze-ocr-text/', analyze_ocr_text, name='analyze_ocr_text'),
-    path('api/v1/analyze/', api_analyze_text, name='api_analyze_text'),
-    path('api/v1/analyze-html/', api_analyze_html, name='api_analyze_html'),
+    path('api/analyze', analyze_api, name='analyze_api'),
+    path('api/analyze-sentence', analyze_sentence_api, name='analyze_sentence_api'),
+    path('api/finish', finish_api, name='finish_api'),
+    path('api/finish-batch', finish_batch_api, name='finish_batch_api'),
+    path('api/finish-sentence', finish_sentence_api, name='finish_sentence_api'),
+    path('api/batch-recall', batch_recall_api, name='batch_recall_api'),
+    path('api/translate-word', translate_word_api, name='translate_word_api'),
+    path('api/translate-sentence', translate_sentence_api, name='translate_sentence_api'),
 ] 

@@ -20,6 +20,7 @@
                         <div class="mb-3">
                             <span class="me-3">Vocab size: <span id="rstar">-</span></span>
                             <span class="me-3">Misses: <span id="misses">0</span></span>
+                            <span class="me-3">EVS: <span id="evs">-</span></span>
                         </div>
                         <div class="small text-muted" id="status"></div>
                     </div>
@@ -120,7 +121,8 @@ function showWord(rank) {
   document.getElementById('status').textContent = `Item ${asked.size + 1}`
   document.getElementById('rstar').textContent = rStar || '-'
   document.getElementById('misses').textContent = missed.length
-  document.getElementById('evs').textContent = expectedVocabSize().toFixed(1)
+  const evsEl = document.getElementById('evs')
+  if (evsEl) evsEl.textContent = expectedVocabSize().toFixed(1)
 }
 
 async function sendBatch(alphaPairs, betaPairs) {

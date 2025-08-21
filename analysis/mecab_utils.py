@@ -64,6 +64,9 @@ def analyze_token(surface, pos, features):
         return None
     return pos
 
+def is_interactive_pos(pos):
+    return (pos in ['NNG', 'NNP', 'NP', 'NR', 'MAG', 'MAJ', 'MM', 'XR']) or ('VV' in pos) or ('VA' in pos) or ('VX' in pos)
+
 def analyze_sentence(sentence):
     try:
         tagger = Tagger()
@@ -133,10 +136,7 @@ def create_interactive_sentence(sentence, results, translations, vocab_words=Non
             html_parts.append(f'<span>{sentence[current_pos:start_pos]}</span>')
         
         # Only make specific POS tags interactive (nouns, adverbs, verbs, roots)
-        is_interactive = (pos in ['NNG', 'NNP', 'NP', 'NR', 'MAG', 'MAJ', 'MM', 'XR'] or 
-                         'VV' in pos or 'VA' in pos or 'VX' in pos)
-        
-        if is_interactive:
+        if is_interactive_pos(pos):
             css_class = 'interactive-word'
             if base in vocab_words:
                 try:
@@ -163,22 +163,18 @@ def create_interactive_sentence(sentence, results, translations, vocab_words=Non
 
 def split_text_into_sentences(text):
     import re
-    
-    sentence_endings = r'[.!?](?=\s|$|[가-힣])'
-    sentences = re.split(f'({sentence_endings})', text)
+    cleaned = re.sub(r'[\u200B-\u200D\u2060]', '', text)
+    pattern = r'(?<!\d)([.!?…]|[。！？])(?!\d)(?=(?:\s|$|[”’"\'\)\]]))'
     result = []
-    
-    for i in range(0, len(sentences), 2):
-        if i + 1 < len(sentences):
-            sentence = sentences[i].strip()
-            punctuation = sentences[i + 1]
-            if sentence:
-                result.append((sentence, punctuation))
-        else:
-            sentence = sentences[i].strip()
-            if sentence:
-                result.append((sentence, ''))
-    
+    start = 0
+    for m in re.finditer(pattern, cleaned):
+        sent = cleaned[start:m.start()].strip()
+        if sent:
+            result.append((sent, m.group(1)))
+        start = m.end()
+    tail = cleaned[start:].strip()
+    if tail:
+        result.append((tail, ''))
     return result
 
 def get_sentence_translation(sentence):
@@ -189,23 +185,36 @@ def get_sentence_translation(sentence):
         print(f"Translation error for sentence '{sentence}': {e}")
         return sentence
 
-def create_interactive_text_with_sentences(text, vocab_words=None):
+def create_interactive_text_with_sentences(text, vocab_words=None, max_words=150):
     if vocab_words is None:
         vocab_words = set()
-    
     sentences = split_text_into_sentences(text)
     html_parts = []
-    
+    remaining = max_words if isinstance(max_words, int) and max_words > 0 else None
     for sentence, punctuation in sentences:
         if sentence.strip():
             results = analyze_sentence(sentence)
-            translations = translate_results(results)
-            sentence_html = create_interactive_sentence(sentence, results, translations, vocab_words)
+            use_results = results
+            if remaining is not None:
+                filtered = []
+                count = 0
+                for surface, base, pos, grammar_info in results:
+                    if base is None:
+                        continue
+                    if is_interactive_pos(pos) and count < remaining:
+                        filtered.append((surface, base, pos, grammar_info))
+                        count += 1
+                    elif not is_interactive_pos(pos):
+                        filtered.append((surface, base, pos, grammar_info))
+                use_results = filtered
+                remaining -= count
+            translations = translate_results(use_results)
+            sentence_html = create_interactive_sentence(sentence, use_results, translations, vocab_words)
             html_parts.append(sentence_html)
-        
         if punctuation:
             html_parts.append(f'<span class="sentence-punctuation" data-sentence="{sentence}">{punctuation}</span>')
-    
+        if remaining is not None and remaining <= 0:
+            break
     return ''.join(html_parts)
 
 def get_papago_translation(word):

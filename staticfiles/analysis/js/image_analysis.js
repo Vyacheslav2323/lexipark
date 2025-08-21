@@ -7,27 +7,33 @@ class ImageAnalysis {
         };
         
         this.init();
+
+        window.applyOcrOverlayColor = (original, color) => {
+            const gradient = this.gradientForColor(color);
+            document.querySelectorAll('.ocr-word.interactive-word[data-original="' + original + '"]').forEach(el => {
+                el.classList.add('in-vocab');
+                el.style.background = gradient;
+                el.style.backgroundColor = '';
+            });
+            document.querySelectorAll('.interactive-word:not(.ocr-word)[data-original="' + original + '"]').forEach(el => {
+                el.classList.add('in-vocab');
+                el.style.background = '';
+                el.style.backgroundColor = 'rgba(255, 255, 0, 0.9)';
+            });
+        };
     }
     
     init() {
         this.bindEvents();
         this.setupDragAndDrop();
-        console.log('Image Analysis initialized!');
     }
     
     bindEvents() {
         const imageInput = document.getElementById('imageInput');
         const processBtn = document.getElementById('processBtn');
-        const finishBtn = document.getElementById('finishBtn');
-        const confidenceSlider = document.getElementById('confidenceSlider');
-        const confidenceValue = document.getElementById('confidenceValue');
         
         imageInput.addEventListener('change', (e) => this.handleImageUpload(e.target.files[0]));
         processBtn.addEventListener('click', () => this.processImageWithOCR());
-        finishBtn.addEventListener('click', () => this.finishAnalysis());
-        confidenceSlider.addEventListener('input', (e) => {
-            confidenceValue.textContent = e.target.value;
-        });
     }
     
     setupDragAndDrop() {
@@ -64,24 +70,31 @@ class ImageAnalysis {
             const processBtn = document.getElementById('processBtn');
             
             ocrImage.src = e.target.result;
-            imageContainer.style.display = 'block';
+            imageContainer.style.display = 'inline-block';
             processBtn.disabled = false;
             this.state.currentImage = file;
             
             this.clearResults();
-            document.getElementById('finishBtn').disabled = true;
             
             this.showNotification(`Image uploaded: ${file.name}`, 'info');
+            
+            ocrImage.onload = () => {
+            };
         };
         reader.readAsDataURL(file);
     }
     
     async processImageWithOCR() {
         if (!this.state.currentImage) return;
+        if (window.IS_AUTHENTICATED === false) {
+            this.showNotification('Please login to continue', 'warning');
+            return;
+        }
         
         try {
             const processBtn = document.getElementById('processBtn');
             const loadingSpinner = document.getElementById('loadingSpinner');
+            const finishBtn = document.getElementById('finish-analysis-btn');
             
             processBtn.disabled = true;
             loadingSpinner.style.display = 'inline-block';
@@ -89,7 +102,7 @@ class ImageAnalysis {
             
             const formData = new FormData();
             formData.append('image', this.state.currentImage);
-            formData.append('confidence', document.getElementById('confidenceSlider').value);
+            formData.append('confidence', '0');
             
             const response = await fetch(window.ANALYSIS_URLS.imageAnalysis, {
                 method: 'POST',
@@ -104,22 +117,34 @@ class ImageAnalysis {
             }
             
             const result = await response.json();
-            console.log('OCR result:', result);
             
             if (result.success) {
-                this.state.ocrResults = result.ocr_data.ocr_data; // Fix: access the nested ocr_data
-                console.log('OCR result:', result.ocr_data);
-                this.displayResults(result.ocr_data);
-                document.getElementById('finishBtn').disabled = false;
+                this.state.ocrResults = result.ocr_data;
                 
-                this.showNotification(`OCR completed! Found ${result.ocr_data.filtered_items} words.`, 'success');
+                // Keep loading state active during text analysis
+                await this.displayResults(result.ocr_data);
+                
+                // Only stop loading after everything is complete
+                this.showNotification(`Analysis Complete! Found ${result.ocr_data.filtered_items} text regions.`, 'success');
+                if (finishBtn) {
+                    const extractedText = (Array.isArray(result.ocr_data) ? result.ocr_data : (result.ocr_data?.ocr_data || [])).map(item => item.text).join(' ');
+                    finishBtn.style.display = 'block';
+                    finishBtn.setAttribute('data-text', extractedText);
+                    if (!finishBtn._bound) {
+                        finishBtn.addEventListener('click', (e) => {
+                            e.preventDefault();
+                            if (window.handleFinishAnalysis) window.handleFinishAnalysis();
+                        });
+                        finishBtn._bound = true;
+                    }
+                }
             } else {
                 throw new Error(result.error || 'OCR processing failed');
             }
             
         } catch (error) {
-            console.error('OCR processing failed:', error);
-            this.showNotification(`OCR processing failed: ${error.message}`, 'warning');
+            console.error('Analysis failed:', error);
+            this.showNotification(`Analysis failed: ${error.message}`, 'warning');
         } finally {
             const processBtn = document.getElementById('processBtn');
             const loadingSpinner = document.getElementById('loadingSpinner');
@@ -130,134 +155,193 @@ class ImageAnalysis {
         }
     }
     
-    displayResults(ocrResult) {
+    async displayResults(ocrResult) {
         this.clearResults();
         
-        // Display the image with text positioned correctly
-        this.displayImageWithText(ocrResult.ocr_data); // Pass the ocr_data array
-        
-        // Display the extracted text for analysis
-        this.displayExtractedText(ocrResult.ocr_data); // Pass the ocr_data array
-        
-        // Setup the existing analysis tools
-        // The existing analysis tools will be used when the user clicks "Analyze This Text"
-        // which will redirect to the page1 analysis page
-        console.log('Image analysis ready - use "Analyze This Text" button to analyze extracted text');
+        // Display the image with interactive text overlays
+        await this.displayImageWithText(ocrResult);
     }
     
-    displayImageWithText(ocrData) {
+    buildOcrSpans(args) {
+        const ocrItems = args.ocrItems || [];
+        let offset = 0;
+        const spans = [];
+        for (const item of ocrItems) {
+            const text = item.text || '';
+            const start = offset;
+            const end = start + text.length;
+            spans.push({ item, start, end, text });
+            offset = end + 1;
+        }
+        return spans;
+    }
+
+    findTokenRange(args) {
+        const text = args.text || '';
+        const token = args.token || '';
+        const fromIndex = args.fromIndex || 0;
+        const start = text.indexOf(token, fromIndex);
+        if (start === -1) return null;
+        return { start, end: start + token.length };
+    }
+
+    findItemForRange(args) {
+        const spans = args.spans || [];
+        const start = args.start;
+        const end = args.end;
+        for (const span of spans) {
+            if (start >= span.start && end <= span.end) return span;
+        }
+        return null;
+    }
+
+    computeBox(args) {
+        const span = args.span;
+        const start = args.start;
+        const end = args.end;
+        const box = span.item.boundingBox;
+        const widthChars = span.end - span.start || 1;
+        const relStart = (start - span.start) / widthChars;
+        const relEnd = (end - span.start) / widthChars;
+        const left = (box.x + box.w * relStart) * 100;
+        const top = box.y * 100;
+        const width = (box.w * (relEnd - relStart)) * 100;
+        const height = box.h * 100;
+        return { left, top, width, height };
+    }
+
+    isInteractivePos(pos) {
+        if (!pos) return false;
+        if (['NNG','NNP','NP','NR','MAG','MAJ','MM'].includes(pos)) return true;
+        if (pos.includes('VV') || pos.includes('VA') || pos.includes('VX')) return true;
+        return false;
+    }
+
+    gradientForColor(color) {
+        if (!color) return '';
+        const m = color.match(/^rgba?\(([^)]+)\)$/);
+        if (!m) return color;
+        const parts = m[1].split(',').map(s => s.trim());
+        const [r, g, b] = parts;
+        const a = parts[3] !== undefined ? parseFloat(parts[3]) : 1;
+        const base = `rgba(${r}, ${g}, ${b}, ${isNaN(a) ? 1 : a})`;
+        const transparent = `rgba(${r}, ${g}, ${b}, 0)`;
+        return `linear-gradient(to bottom, ${transparent} 0%, ${transparent} 85%, ${base} 100%)`;
+    }
+
+    async displayImageWithText(ocrDataObj) {
         const imageContainer = document.getElementById('imageContainer');
-        const ocrImage = document.getElementById('ocrImage');
+        const self = this; // Capture the ImageAnalysis instance
         
-        // Position interactive word boxes on the image (no text content)
-        ocrData.forEach(item => {
-            const overlay = document.createElement('div');
-            overlay.className = 'text-overlay interactive-word';
-            
-            // Set required data attributes for interactivity
-            overlay.setAttribute('data-original', item.text);
-            overlay.setAttribute('data-translation', item.text);
-            overlay.setAttribute('data-pos', 'N/A');
-            overlay.setAttribute('data-grammar', 'N/A');
-            
-            // Calculate position with bounds checking
-            let left = item.boundingBox.x * 100;
-            let top = item.boundingBox.y * 100;
-            let width = item.boundingBox.w * 100;
-            let height = item.boundingBox.h * 100;
-            
-            // Ensure overlay doesn't go too far outside image bounds
-            if (left < -20) left = -20;
-            if (top < -20) top = -20;
-            if (left + width > 120) left = 120 - width;
-            if (top + height > 120) top = 120 - height;
-            
-            // Position and size the overlay properly
-            overlay.style.position = 'absolute';
-            overlay.style.left = left + '%';
-            overlay.style.top = top + '%';
-            overlay.style.width = width + '%';
-            overlay.style.height = height + '%';
-            
-            // Make it interactive
-            overlay.style.pointerEvents = 'auto';
-            overlay.style.cursor = 'pointer';
-            
-            imageContainer.appendChild(overlay);
+        // Make sure overlays position relative to the container
+        if (window.getComputedStyle(imageContainer).position === 'static') {
+            imageContainer.style.position = 'relative';
+        }
+        
+        // Normalize items
+        const ocrItems = Array.isArray(ocrDataObj)
+            ? ocrDataObj
+            : (Array.isArray(ocrDataObj?.ocr_data) ? ocrDataObj.ocr_data : []);
+        
+        if (!ocrItems.length) {
+            this.showNotification('OCR data format error', 'error');
+            return;
+        }
+        
+        const extractedText = ocrItems.map(item => item.text).join(' ');
+        
+        return new Promise((resolve, reject) => {
+            fetch('/analysis/analyze-ocr-text/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRFToken': window.CSRF_TOKEN
+            },
+            body: JSON.stringify({ text: extractedText })
+        })
+        .then(response => response.json())
+        .then(analysisData => {
+            if (analysisData.success) {
+                const spans = this.buildOcrSpans({ ocrItems });
+                let cursor = 0;
+                const fullText = extractedText;
+                const imgEl = document.getElementById('ocrImage');
+                const imgRect = imgEl.getBoundingClientRect();
+                const contRect = imageContainer.getBoundingClientRect();
+                const imgOffsetX = imgRect.left - contRect.left;
+                const imgOffsetY = imgRect.top - contRect.top;
+                
+                analysisData.words.forEach((wordData, index) => {
+                    if (!wordData || !wordData.surface) return;
+                    const base = wordData.base || wordData.surface;
+                    if (!base) return;
+                    if (!this.isInteractivePos(wordData.pos)) return;
+                    const range = this.findTokenRange({ text: fullText, token: wordData.surface, fromIndex: cursor });
+                    if (!range) return;
+                    cursor = range.end;
+                    const span = this.findItemForRange({ spans, start: range.start, end: range.end });
+                    if (!span || !span.item || !span.item.boundingBox) return;
+                    const box = this.computeBox({ span, start: range.start, end: range.end });
+                    const overlay = document.createElement('div');
+                    overlay.className = 'text-overlay interactive-word ocr-word';
+                    overlay.id = `ocr-word-${index}`;
+                    overlay.setAttribute('data-original', base);
+                    overlay.setAttribute('data-translation', wordData.translation || (wordData.in_vocab ? (wordData.surface || '') : ''));
+                    overlay.setAttribute('data-pos', wordData.pos || 'N/A');
+                    overlay.setAttribute('data-grammar', wordData.grammar_info || 'N/A');
+                    if (wordData.in_vocab) {
+                        overlay.classList.add('in-vocab');
+                        if (wordData.color) {
+                            overlay.style.background = this.gradientForColor(wordData.color);
+                        }
+                    }
+                    if (!wordData.in_vocab) {
+                        const green = 'rgba(212, 237, 218, 1)';
+                        overlay.style.background = this.gradientForColor(green);
+                    }
+                    overlay.style.position = 'absolute';
+                    const leftPx = imgOffsetX + (box.left / 100) * imgRect.width;
+                    const topPx = imgOffsetY + (box.top / 100) * imgRect.height;
+                    const widthPx = (box.width / 100) * imgRect.width;
+                    const heightPx = (box.height / 100) * imgRect.height;
+                    overlay.style.left = leftPx + 'px';
+                    overlay.style.top = topPx + 'px';
+                    overlay.style.width = widthPx + 'px';
+                    overlay.style.height = heightPx + 'px';
+                    overlay.style.border = 'none';
+                    // backgroundColor comes from CSS for unknowns and inline for known words
+                    overlay.style.pointerEvents = 'auto';
+                    overlay.style.cursor = 'pointer';
+                    overlay.style.zIndex = '1000';
+                    overlay.style.minWidth = '10px';
+                    overlay.style.minHeight = '10px';
+                    overlay.style.boxSizing = 'border-box';
+                    imageContainer.appendChild(overlay);
+                    if (window.bindWordElementEvents) window.bindWordElementEvents(overlay);
+                });
+                
+                const finalCount = imageContainer.querySelectorAll('.text-overlay').length;
+                resolve();
+            } else {
+                reject(new Error('Text analysis failed'));
+            }
+        })
+        .catch(error => {
+            reject(error);
         });
-        
-        // Let the existing interactive system handle all events
-        // The interactive/index.js will automatically setup events for new .interactive-word elements
-    }
-    
-    displayExtractedText(ocrData) {
-        const wordInfo = document.getElementById('wordInfo');
-        const wordList = document.getElementById('wordList');
-        
-        // Show the extracted text that can be analyzed
-        const extractedText = ocrData.map(item => item.text).join(' ');
-        wordList.innerHTML = `
-            <p><strong>Extracted Text:</strong> ${extractedText}</p>
-            <div class="mt-3">
-                <button class="btn btn-primary" id="analyzeTextBtn">
-                    <i class="fas fa-language me-2"></i>Analyze This Text
-                </button>
-            </div>
-        `;
-        wordInfo.style.display = 'block';
-        
-        // Add event listener for analyze button
-        document.getElementById('analyzeTextBtn').addEventListener('click', () => {
-            this.analyzeExtractedText(extractedText);
         });
-    }
-    
-    analyzeExtractedText(text) {
-        // Use the existing page1 analysis functionality
-        const textInput = document.createElement('input');
-        textInput.type = 'hidden';
-        textInput.name = 'textinput';
-        textInput.value = text;
-        
-        const form = document.createElement('form');
-        form.method = 'POST';
-        form.action = '/analysis/page1/';
-        form.appendChild(textInput);
-        
-        // Add CSRF token
-        const csrfInput = document.createElement('input');
-        csrfInput.type = 'hidden';
-        csrfInput.name = 'csrfmiddlewaretoken';
-        csrfInput.value = window.CSRF_TOKEN;
-        form.appendChild(csrfInput);
-        
-        // Submit the form
-        document.body.appendChild(form);
-        form.submit();
     }
     
     clearResults() {
-        // Remove text overlays
         const overlays = document.querySelectorAll('.text-overlay');
         overlays.forEach(overlay => overlay.remove());
-        
-        // Clear extracted text
-        const wordList = document.getElementById('wordList');
-        wordList.innerHTML = '';
-        document.getElementById('wordInfo').style.display = 'none';
-    }
-    
-    finishAnalysis() {
-        this.showNotification('Analysis completed!', 'success');
-        document.getElementById('finishBtn').disabled = true;
     }
     
     showNotification(message, type = 'info') {
-        // Use the existing notification system from interactive/ui.js if available
         if (window.showNotification) {
             window.showNotification(message, type);
         } else {
-            // Fallback simple notification
             const notification = document.createElement('div');
             notification.className = `notification notification-${type}`;
             notification.textContent = message;
