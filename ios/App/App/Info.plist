@@ -45,5 +45,24 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
+	
+	<!-- URL Schemes for deep linking -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>com.lexipark.app</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>lexipark</string>
+			</array>
+		</dict>
+	</array>
+	
+	<!-- Universal Links -->
+	<key>com.apple.developer.associated-domains</key>
+	<array>
+		<string>applinks:lexipark.onrender.com</string>
+	</array>
 </dict>
 </plist>
