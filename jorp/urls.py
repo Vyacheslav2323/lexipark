@@ -1,6 +1,9 @@
 from django.contrib import admin
 from django.urls import path, include
 from django.shortcuts import redirect
+from django.http import HttpResponse
+from django.conf import settings
+import os
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 def home_view(request):
@@ -15,4 +18,5 @@ urlpatterns = [
     path('api/v1/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/v1/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('admin/', admin.site.urls),
+    path('service-worker.js', lambda request: HttpResponse(open(os.path.join(settings.BASE_DIR, 'static', 'service-worker.js'), 'rb').read(), content_type='application/javascript')),
 ]
