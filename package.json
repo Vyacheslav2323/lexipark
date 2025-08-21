@@ -1,0 +1,32 @@
+{
+  "name": "jorp",
+  "version": "1.0.0",
+  "description": "A Django-based web application for learning Korean vocabulary through interactive text analysis and spaced repetition.",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Vyacheslav2323/lexipark.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Vyacheslav2323/lexipark/issues"
+  },
+  "homepage": "https://github.com/Vyacheslav2323/lexipark#readme",
+  "devDependencies": {
+    "@capacitor/cli": "^7.4.3"
+  },
+  "dependencies": {
+    "@capacitor/android": "^7.4.3",
+    "@capacitor/core": "^7.4.3",
+    "@capacitor/ios": "^7.4.3"
+  }
+}
