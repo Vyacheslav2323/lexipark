@@ -1,10 +1,8 @@
 import { showNotification } from './ui.js';
+import { translateWord as apiTranslateWord } from './api.js'
 
 function requestTranslation(word) {
-  return fetch('/analysis/translate-word/', {method:'POST', headers:{'Content-Type':'application/json','X-Requested-With':'XMLHttpRequest'}, body: JSON.stringify({word})})
-    .then(r=>r.json())
-    .then(d=> d.success ? d.translation : '')
-    .catch(()=> '');
+  return apiTranslateWord({ word }).then(d => d.success ? d.translation : '').catch(() => '');
 }
 
 export function saveToVocabulary(koreanWord, pos, grammarInfo, translation) {

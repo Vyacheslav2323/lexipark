@@ -8,3 +8,4 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 window.handleFinishAnalysis = handleFinishAnalysis; 
+window.setupSentenceEvents = setupSentenceEvents;

@@ -218,3 +218,5 @@ npx cap sync
 - **Android Issues**: [Android Developer Forums](https://developer.android.com/community)
 - **iOS Issues**: [Apple Developer Forums](https://developer.apple.com/forums/)
 - **Django Issues**: [Django Community](https://www.djangoproject.com/community/)
+
+

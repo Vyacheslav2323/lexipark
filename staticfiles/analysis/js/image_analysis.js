@@ -31,14 +31,14 @@ class ImageAnalysis {
     bindEvents() {
         const imageInput = document.getElementById('imageInput');
         const processBtn = document.getElementById('processBtn');
-        
-        imageInput.addEventListener('change', (e) => this.handleImageUpload(e.target.files[0]));
-        processBtn.addEventListener('click', () => this.processImageWithOCR());
+        if (imageInput) imageInput.addEventListener('change', (e) => this.handleImageUpload(e.target.files[0]));
+        if (processBtn) processBtn.style.display = 'none';
     }
     
     setupDragAndDrop() {
         const fileContainer = document.getElementById('fileContainer');
         
+        if (!fileContainer) return;
         fileContainer.addEventListener('dragover', (e) => {
             e.preventDefault();
             fileContainer.classList.add('drag-over');
@@ -67,19 +67,16 @@ class ImageAnalysis {
         reader.onload = (e) => {
             const ocrImage = document.getElementById('ocrImage');
             const imageContainer = document.getElementById('imageContainer');
-            const processBtn = document.getElementById('processBtn');
+            const loadingSpinner = document.getElementById('loadingSpinner');
             
-            ocrImage.src = e.target.result;
-            imageContainer.style.display = 'inline-block';
-            processBtn.disabled = false;
+            if (ocrImage) ocrImage.src = e.target.result;
+            if (imageContainer) imageContainer.style.display = 'inline-block';
             this.state.currentImage = file;
             
             this.clearResults();
-            
             this.showNotification(`Image uploaded: ${file.name}`, 'info');
-            
-            ocrImage.onload = () => {
-            };
+            if (loadingSpinner) loadingSpinner.style.display = 'inline-block';
+            this.processImageWithOCR();
         };
         reader.readAsDataURL(file);
     }
@@ -92,13 +89,9 @@ class ImageAnalysis {
         }
         
         try {
-            const processBtn = document.getElementById('processBtn');
             const loadingSpinner = document.getElementById('loadingSpinner');
             const finishBtn = document.getElementById('finish-analysis-btn');
-            
-            processBtn.disabled = true;
-            loadingSpinner.style.display = 'inline-block';
-            processBtn.querySelector('span').textContent = 'Processing...';
+            if (loadingSpinner) loadingSpinner.style.display = 'inline-block';
             
             const formData = new FormData();
             formData.append('image', this.state.currentImage);
@@ -107,25 +100,19 @@ class ImageAnalysis {
             const response = await fetch(window.ANALYSIS_URLS.imageAnalysis, {
                 method: 'POST',
                 body: formData,
-                headers: {
-                    'X-CSRFToken': window.CSRF_TOKEN
-                }
+                headers: { 'X-CSRFToken': window.CSRF_TOKEN }
             });
             
             if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
+                throw new Error(`HTTP ${response.status}`);
             }
             
             const result = await response.json();
             
             if (result.success) {
                 this.state.ocrResults = result.ocr_data;
-                
-                // Keep loading state active during text analysis
                 await this.displayResults(result.ocr_data);
-                
-                // Only stop loading after everything is complete
-                this.showNotification(`Analysis Complete! Found ${result.ocr_data.filtered_items} text regions.`, 'success');
+                this.showNotification(`Analysis Complete!`, 'success');
                 if (finishBtn) {
                     const extractedText = (Array.isArray(result.ocr_data) ? result.ocr_data : (result.ocr_data?.ocr_data || [])).map(item => item.text).join(' ');
                     finishBtn.style.display = 'block';
@@ -146,19 +133,13 @@ class ImageAnalysis {
             console.error('Analysis failed:', error);
             this.showNotification(`Analysis failed: ${error.message}`, 'warning');
         } finally {
-            const processBtn = document.getElementById('processBtn');
             const loadingSpinner = document.getElementById('loadingSpinner');
-            
-            processBtn.disabled = false;
-            loadingSpinner.style.display = 'none';
-            processBtn.querySelector('span').textContent = 'Process Image';
+            if (loadingSpinner) loadingSpinner.style.display = 'none';
         }
     }
     
     async displayResults(ocrResult) {
         this.clearResults();
-        
-        // Display the image with interactive text overlays
         await this.displayImageWithText(ocrResult);
     }
     
@@ -210,13 +191,6 @@ class ImageAnalysis {
         return { left, top, width, height };
     }
 
-    isInteractivePos(pos) {
-        if (!pos) return false;
-        if (['NNG','NNP','NP','NR','MAG','MAJ','MM'].includes(pos)) return true;
-        if (pos.includes('VV') || pos.includes('VA') || pos.includes('VX')) return true;
-        return false;
-    }
-
     gradientForColor(color) {
         if (!color) return '';
         const m = color.match(/^rgba?\(([^)]+)\)$/);
@@ -226,111 +200,104 @@ class ImageAnalysis {
         const a = parts[3] !== undefined ? parseFloat(parts[3]) : 1;
         const base = `rgba(${r}, ${g}, ${b}, ${isNaN(a) ? 1 : a})`;
         const transparent = `rgba(${r}, ${g}, ${b}, 0)`;
-        return `linear-gradient(to bottom, ${transparent} 0%, ${transparent} 85%, ${base} 100%)`;
+        return `linear-gradient(to bottom, ${transparent} 0%, ${transparent} 90%, ${base} 100%)`;
     }
 
     async displayImageWithText(ocrDataObj) {
         const imageContainer = document.getElementById('imageContainer');
-        const self = this; // Capture the ImageAnalysis instance
-        
-        // Make sure overlays position relative to the container
+        if (!imageContainer) return;
         if (window.getComputedStyle(imageContainer).position === 'static') {
             imageContainer.style.position = 'relative';
         }
-        
-        // Normalize items
         const ocrItems = Array.isArray(ocrDataObj)
             ? ocrDataObj
             : (Array.isArray(ocrDataObj?.ocr_data) ? ocrDataObj.ocr_data : []);
-        
         if (!ocrItems.length) {
             this.showNotification('OCR data format error', 'error');
             return;
         }
-        
-        const extractedText = ocrItems.map(item => item.text).join(' ');
-        
-        return new Promise((resolve, reject) => {
-            fetch('/analysis/analyze-ocr-text/', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-Requested-With': 'XMLHttpRequest',
-                'X-CSRFToken': window.CSRF_TOKEN
-            },
-            body: JSON.stringify({ text: extractedText })
-        })
-        .then(response => response.json())
-        .then(analysisData => {
-            if (analysisData.success) {
-                const spans = this.buildOcrSpans({ ocrItems });
-                let cursor = 0;
-                const fullText = extractedText;
-                const imgEl = document.getElementById('ocrImage');
-                const imgRect = imgEl.getBoundingClientRect();
-                const contRect = imageContainer.getBoundingClientRect();
-                const imgOffsetX = imgRect.left - contRect.left;
-                const imgOffsetY = imgRect.top - contRect.top;
-                
-                analysisData.words.forEach((wordData, index) => {
-                    if (!wordData || !wordData.surface) return;
-                    const base = wordData.base || wordData.surface;
-                    if (!base) return;
-                    if (!this.isInteractivePos(wordData.pos)) return;
-                    const range = this.findTokenRange({ text: fullText, token: wordData.surface, fromIndex: cursor });
-                    if (!range) return;
-                    cursor = range.end;
-                    const span = this.findItemForRange({ spans, start: range.start, end: range.end });
-                    if (!span || !span.item || !span.item.boundingBox) return;
-                    const box = this.computeBox({ span, start: range.start, end: range.end });
-                    const overlay = document.createElement('div');
-                    overlay.className = 'text-overlay interactive-word ocr-word';
-                    overlay.id = `ocr-word-${index}`;
-                    overlay.setAttribute('data-original', base);
-                    overlay.setAttribute('data-translation', wordData.translation || (wordData.in_vocab ? (wordData.surface || '') : ''));
-                    overlay.setAttribute('data-pos', wordData.pos || 'N/A');
-                    overlay.setAttribute('data-grammar', wordData.grammar_info || 'N/A');
-                    if (wordData.in_vocab) {
-                        overlay.classList.add('in-vocab');
-                        if (wordData.color) {
-                            overlay.style.background = this.gradientForColor(wordData.color);
-                        }
-                    }
-                    if (!wordData.in_vocab) {
-                        const green = 'rgba(212, 237, 218, 1)';
-                        overlay.style.background = this.gradientForColor(green);
-                    }
-                    overlay.style.position = 'absolute';
-                    const leftPx = imgOffsetX + (box.left / 100) * imgRect.width;
-                    const topPx = imgOffsetY + (box.top / 100) * imgRect.height;
-                    const widthPx = (box.width / 100) * imgRect.width;
-                    const heightPx = (box.height / 100) * imgRect.height;
-                    overlay.style.left = leftPx + 'px';
-                    overlay.style.top = topPx + 'px';
-                    overlay.style.width = widthPx + 'px';
-                    overlay.style.height = heightPx + 'px';
-                    overlay.style.border = 'none';
-                    // backgroundColor comes from CSS for unknowns and inline for known words
-                    overlay.style.pointerEvents = 'auto';
-                    overlay.style.cursor = 'pointer';
-                    overlay.style.zIndex = '1000';
-                    overlay.style.minWidth = '10px';
-                    overlay.style.minHeight = '10px';
-                    overlay.style.boxSizing = 'border-box';
-                    imageContainer.appendChild(overlay);
-                    if (window.bindWordElementEvents) window.bindWordElementEvents(overlay);
-                });
-                
-                const finalCount = imageContainer.querySelectorAll('.text-overlay').length;
-                resolve();
-            } else {
-                reject(new Error('Text analysis failed'));
+        const fullText = ocrItems.map(item => item.text).join(' ');
+        const spans = this.buildOcrSpans({ ocrItems });
+        let cursor = 0;
+        const imgEl = document.getElementById('ocrImage');
+        const imgRect = imgEl.getBoundingClientRect();
+        const contRect = imageContainer.getBoundingClientRect();
+        const imgOffsetX = imgRect.left - contRect.left;
+        const imgOffsetY = imgRect.top - contRect.top;
+        const loader = document.createElement('div');
+        loader.style.cssText = 'margin-top:8px;color:#6c757d;text-align:center;';
+        let dots = 0; loader.textContent = 'Analyzing';
+        const tick = setInterval(() => { dots = (dots + 1) % 4; loader.textContent = 'Analyzing' + '.'.repeat(dots); }, 400);
+        imageContainer.appendChild(loader);
+        // sentence streaming
+        const parts = fullText.split(/([.!?…]|[。！？])/);
+        const sentences = [];
+        for (let i=0;i<parts.length;i+=2) { const s=(parts[i]||'').trim(); const p=parts[i+1]||''; if (s) sentences.push(s + p); }
+        for (const sentence of sentences) {
+            /* eslint-disable no-await-in-loop */
+            const res = await fetch('/analysis/api/analyze-sentence', { method:'POST', headers:{ 'Content-Type':'application/json','X-Requested-With':'XMLHttpRequest' }, body: JSON.stringify({ sentence }) }).then(r=>r.json()).catch(()=>null);
+            if (!res || !res.success) continue;
+            const tmp = document.createElement('div');
+            tmp.innerHTML = res.html || '';
+            const elements = Array.from(tmp.querySelectorAll('.interactive-word'));
+            const tokens = elements.map(el => {
+                const styleAttr = el.getAttribute('style') || '';
+                const inlineColor = (styleAttr.match(/background-color:\s*([^;]+)/i) || [])[1] || '';
+                const isKnown = inlineColor && inlineColor.toLowerCase() !== 'transparent';
+                return {
+                    surface: el.textContent || '',
+                    base: el.getAttribute('data-original') || '',
+                    pos: el.getAttribute('data-pos') || '',
+                    grammar_info: el.getAttribute('data-grammar') || '',
+                    translation: el.getAttribute('data-translation') || '',
+                    in_vocab: isKnown,
+                    color: inlineColor
+                };
+            });
+            for (let index=0; index<tokens.length; index++) {
+                const wordData = tokens[index];
+                if (!wordData || !wordData.surface) continue;
+                const range = this.findTokenRange({ text: fullText, token: wordData.surface, fromIndex: cursor });
+                if (!range) continue;
+                cursor = range.end;
+                const span = this.findItemForRange({ spans, start: range.start, end: range.end });
+                if (!span || !span.item || !span.item.boundingBox) continue;
+                const box = this.computeBox({ span, start: range.start, end: range.end });
+                const overlay = document.createElement('div');
+                overlay.className = 'text-overlay interactive-word ocr-word';
+                overlay.id = `ocr-word-${Date.now()}-${index}`;
+                overlay.setAttribute('data-original', wordData.base || wordData.surface);
+                overlay.setAttribute('data-translation', wordData.translation || '');
+                overlay.setAttribute('data-pos', wordData.pos || '');
+                overlay.setAttribute('data-grammar', wordData.grammar_info || '');
+                if (wordData.in_vocab) {
+                    overlay.classList.add('in-vocab');
+                    overlay.style.background = this.gradientForColor(wordData.color);
+                } else {
+                    const subtle = 'rgba(212, 237, 218, 0.6)';
+                    overlay.style.background = this.gradientForColor(subtle);
+                }
+                overlay.style.position = 'absolute';
+                const leftPx = imgOffsetX + (box.left / 100) * imgRect.width;
+                const topPx = imgOffsetY + (box.top / 100) * imgRect.height;
+                const widthPx = (box.width / 100) * imgRect.width;
+                const heightPx = (box.height / 100) * imgRect.height;
+                overlay.style.left = leftPx + 'px';
+                overlay.style.top = topPx + 'px';
+                overlay.style.width = widthPx + 'px';
+                overlay.style.height = heightPx + 'px';
+                overlay.style.pointerEvents = 'auto';
+                overlay.style.cursor = 'pointer';
+                overlay.style.zIndex = '1000';
+                overlay.style.minWidth = '10px';
+                overlay.style.minHeight = '10px';
+                overlay.style.boxSizing = 'border-box';
+                imageContainer.appendChild(overlay);
+                if (window.bindWordElementEvents) window.bindWordElementEvents(overlay);
             }
-        })
-        .catch(error => {
-            reject(error);
-        });
-        });
+        }
+        clearInterval(tick);
+        loader.remove();
     }
     
     clearResults() {
