@@ -98,13 +98,13 @@ def translate_results(results):
             continue
         if isinstance(result, str) and result not in ['NNG', 'NNP', 'NP', 'NR', 'MAG', 'MAJ', 'MM']:
             if any('\u3131' <= char <= '\u318E' or '\uAC00' <= char <= '\uD7A3' for char in result):
-                translation = get_papago_translation(result)
+                translation = get_cached_translation(result)
                 translations.append(translation)
             else:
                 translations.append(result)
             continue
         if isinstance(result, str) and any('\u3131' <= char <= '\u318E' or '\uAC00' <= char <= '\uD7A3' for char in result):
-            translation = get_papago_translation(result)
+            translation = get_cached_translation(result)
             translations.append(translation)
         else:
             translations.append(result)
@@ -239,6 +239,14 @@ def get_papago_translation(word):
         return translation
     except Exception as e:
         print(f"Translation error for '{word}': {e}")
+        return word
+
+def get_cached_translation(word):
+    try:
+        from vocab.models import GlobalTranslation
+        cached_translation = GlobalTranslation.objects.filter(korean_word=word).first()
+        return cached_translation.english_translation if cached_translation else word
+    except Exception:
         return word
 
 
