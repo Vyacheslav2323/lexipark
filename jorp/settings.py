@@ -70,7 +70,6 @@ if DEBUG:
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
-    'analysis.middleware.StripAuthForAnalysisMiddleware',
     'corsheaders.middleware.CorsMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -239,6 +238,10 @@ import re
 CORS_ALLOWED_ORIGIN_REGEXES = [
     r'^chrome-extension://.*$',
     r'^moz-extension://.*$',
+]
+from corsheaders.defaults import default_headers
+CORS_ALLOW_HEADERS = list(default_headers) + [
+    'authorization',
 ]
 
 # Clova OCR Configuration
