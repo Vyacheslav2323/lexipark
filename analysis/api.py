@@ -35,6 +35,12 @@ def analyze_api(request):
 		data = json.loads(request.body or '{}')
 		text = data.get('text') or ''
 		user = _resolve_user(request)
+		has_auth = bool((request.META.get('HTTP_AUTHORIZATION') or '').strip())
+		try:
+			vc = Vocabulary.objects.filter(user=user).count() if user and getattr(user, 'id', None) else 0
+		except Exception:
+			vc = -1
+		print(f"analyze_api: has_auth={has_auth} uid={(getattr(user,'id',0) or 0)} vocab_count={vc}")
 		if not (user and getattr(user, 'is_authenticated', False)):
 			return JsonResponse({ 'success': True, 'html': '', 'words': [] })
 		uid = getattr(user, 'id', 0) or 0
