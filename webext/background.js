@@ -37,6 +37,11 @@ async function apiFetchAt(base, path, opts={}) {
         res = await fetch(`${base}${path}`, { ...opts, headers: headers2 })
       }
     }
+    if (res.status === 401 && String(path || '').startsWith('/analysis/api/')) {
+      const headers3 = Object.assign({ 'Content-Type': 'application/json' }, opts.headers || {})
+      delete headers3.Authorization
+      res = await fetch(`${base}${path}`, { ...opts, headers: headers3 })
+    }
   }
   return res
 }

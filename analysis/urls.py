@@ -12,6 +12,7 @@ urlpatterns = [
     path('track-sentence-hover/', track_sentence_hover, name='track_sentence_hover'),
     path('process-photo-analysis/', process_photo_ocr, name='process_photo_analysis'),
     path('api/analyze', analyze_api, name='analyze_api'),
+    path('api/v1/analyze/', analyze_api, name='analyze_api_v1'),
     path('api/analyze-sentence', analyze_sentence_api, name='analyze_sentence_api'),
     path('api/finish', finish_api, name='finish_api'),
     path('api/finish-batch', finish_batch_api, name='finish_batch_api'),
