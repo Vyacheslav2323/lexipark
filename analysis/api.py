@@ -22,7 +22,17 @@ def analyze_api(request):
 		key = f"analyze:{uid}:{hashlib.sha256(text.encode('utf-8')).hexdigest()}"
 		res = cache.get(key)
 		if not res:
-			res = pipeline_analyze({ 'user': request.user, 'text': text })
+			user = request.user
+			if not (user and getattr(user, 'is_authenticated', False)):
+				from rest_framework_simplejwt.authentication import JWTAuthentication
+				try:
+					auth = JWTAuthentication()
+					validated = auth.authenticate(request)
+					if validated and validated[0]:
+						user = validated[0]
+				except Exception:
+					user = request.user
+			res = pipeline_analyze({ 'user': user, 'text': text })
 			cache.set(key, res, 60)
 		return JsonResponse({ 'success': True, **res })
 	except Exception as e:
