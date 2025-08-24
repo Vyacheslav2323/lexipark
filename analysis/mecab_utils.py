@@ -91,24 +91,22 @@ def analyze_sentence(sentence):
         return []
 
 def translate_results(results):
-    translations = []
-    for surface, result, pos, grammar_info in results:
+    def has_hangul(s):
+        return any('\u3131' <= c <= '\u318E' or '\uAC00' <= c <= '\uD7A3' for c in s)
+    need = []
+    for _, result, _, _ in results:
+        if isinstance(result, str) and has_hangul(result):
+            need.append(result)
+    tr_map = get_cached_translations_map(need)
+    out = []
+    for _, result, _, _ in results:
         if result is None:
-            translations.append(None)
-            continue
-        if isinstance(result, str) and result not in ['NNG', 'NNP', 'NP', 'NR', 'MAG', 'MAJ', 'MM']:
-            if any('\u3131' <= char <= '\u318E' or '\uAC00' <= char <= '\uD7A3' for char in result):
-                translation = get_cached_translation(result)
-                translations.append(translation)
-            else:
-                translations.append(result)
-            continue
-        if isinstance(result, str) and any('\u3131' <= char <= '\u318E' or '\uAC00' <= char <= '\uD7A3' for char in result):
-            translation = get_cached_translation(result)
-            translations.append(translation)
+            out.append(None)
+        elif isinstance(result, str) and has_hangul(result):
+            out.append(tr_map.get(result, result))
         else:
-            translations.append(result)
-    return translations
+            out.append(result)
+    return out
 
 def retention_to_color(retention_rate):
     if retention_rate >= 1.0:
@@ -248,5 +246,16 @@ def get_cached_translation(word):
         return cached_translation.english_translation if cached_translation else word
     except Exception:
         return word
+
+def get_cached_translations_map(words):
+    try:
+        from vocab.models import GlobalTranslation
+        uniq = list(dict.fromkeys([w for w in (words or []) if w]))
+        if not uniq:
+            return {}
+        rows = GlobalTranslation.objects.filter(korean_word__in=uniq).values_list('korean_word', 'english_translation')
+        return {k: v for (k, v) in rows}
+    except Exception:
+        return {}
 
 
