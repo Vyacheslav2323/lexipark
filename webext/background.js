@@ -23,7 +23,8 @@ async function apiFetchAt(base, path, opts={}) {
   let token = await getToken()
   const headers = Object.assign({ 'Content-Type': 'application/json' }, opts.headers || {})
   if (token) headers.Authorization = `Bearer ${token}`
-  let res = await fetch(`${base}${path}`, { ...opts, headers })
+  const withCreds = (String(path || '').startsWith('/analysis/api/')) ? { credentials: 'include' } : {}
+  let res = await fetch(`${base}${path}`, { ...opts, headers, ...withCreds })
   if (res.status === 401) {
     const refresh = await getRefresh()
     if (refresh) {
@@ -34,13 +35,8 @@ async function apiFetchAt(base, path, opts={}) {
         token = data.access
         const headers2 = Object.assign({ 'Content-Type': 'application/json' }, opts.headers || {})
         headers2.Authorization = `Bearer ${token}`
-        res = await fetch(`${base}${path}`, { ...opts, headers: headers2 })
+        res = await fetch(`${base}${path}`, { ...opts, headers: headers2, ...withCreds })
       }
-    }
-    if (res.status === 401 && String(path || '').startsWith('/analysis/api/')) {
-      const headers3 = Object.assign({ 'Content-Type': 'application/json' }, opts.headers || {})
-      delete headers3.Authorization
-      res = await fetch(`${base}${path}`, { ...opts, headers: headers3 })
     }
   }
   return res
