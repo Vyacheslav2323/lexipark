@@ -35,6 +35,8 @@ def analyze_api(request):
 		data = json.loads(request.body or '{}')
 		text = data.get('text') or ''
 		user = _resolve_user(request)
+		if not (user and getattr(user, 'is_authenticated', False)):
+			return JsonResponse({ 'success': True, 'html': '', 'words': [] })
 		uid = getattr(user, 'id', 0) or 0
 		key = f"analyze:{uid}:{hashlib.sha256(text.encode('utf-8')).hexdigest()}"
 		res = cache.get(key)
