@@ -11,6 +11,22 @@ from django.core.cache import cache
 import hashlib
 from analysis.core.interactive_rules import interactive as is_interactive
 
+def _resolve_user(request):
+	user = getattr(request, 'user', None)
+	if user and getattr(user, 'is_authenticated', False):
+		return user
+	try:
+		from rest_framework_simplejwt.authentication import JWTAuthentication
+		auth = JWTAuthentication()
+		h = request.META.get('HTTP_AUTHORIZATION', '') or ''
+		p = h.split()
+		if len(p) == 2 and p[0].lower() == 'bearer':
+			vt = auth.get_validated_token(p[1])
+			return auth.get_user(vt)
+	except Exception:
+		return user
+	return user
+
 @csrf_exempt
 def analyze_api(request):
 	if request.method != 'POST':
@@ -18,17 +34,7 @@ def analyze_api(request):
 	try:
 		data = json.loads(request.body or '{}')
 		text = data.get('text') or ''
-		# Resolve user before caching so cache key is user-aware
-		user = request.user
-		if not (user and getattr(user, 'is_authenticated', False)):
-			from rest_framework_simplejwt.authentication import JWTAuthentication
-			try:
-				auth = JWTAuthentication()
-				validated = auth.authenticate(request)
-				if validated and validated[0]:
-					user = validated[0]
-			except Exception:
-				user = request.user
+		user = _resolve_user(request)
 		uid = getattr(user, 'id', 0) or 0
 		key = f"analyze:{uid}:{hashlib.sha256(text.encode('utf-8')).hexdigest()}"
 		res = cache.get(key)
