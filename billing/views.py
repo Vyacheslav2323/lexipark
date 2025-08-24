@@ -205,11 +205,18 @@ def _create_plan(access_token, product_id, price_value):
 
 
 def _ensure_plan_for_price(access_token, price_value):
-    env_key = 'PAYPAL_PLAN_ID_9999' if str(price_value) == '9999' else os.getenv('PAYPAL_PLAN_ID')
-    if isinstance(env_key, str) and env_key and str(price_value) == '9999':
-        return os.getenv('PAYPAL_PLAN_ID_9999')
-    if isinstance(env_key, str) and env_key and str(price_value) != '9999':
-        return env_key
+    if str(price_value) == '4999':
+        env = os.getenv('PAYPAL_PLAN_ID_4999') or ''
+        if env.startswith('P-'):
+            return env
+    elif str(price_value) == '9999':
+        env = os.getenv('PAYPAL_PLAN_ID_9999') or ''
+        if env.startswith('P-'):
+            return env
+    else:
+        env = os.getenv('PAYPAL_PLAN_ID') or ''
+        if env.startswith('P-'):
+            return env
     product_id = _ensure_product(access_token)
     existing = _find_plan(access_token, product_id, price_value)
     if existing:
@@ -218,7 +225,7 @@ def _ensure_plan_for_price(access_token, price_value):
 
 
 def _ensure_discount_plan(access_token):
-    return _ensure_plan_for_price(access_token, 9999)
+    return _ensure_plan_for_price(access_token, 4999)
 
 
 @login_required
@@ -243,7 +250,7 @@ def create_subscription(request):
     sub = Subscription.objects.filter(user=user).first()
     plan_id = None
     env_regular = os.getenv('PAYPAL_PLAN_ID') or ''
-    env_discount = os.getenv('PAYPAL_PLAN_ID_9999') or ''
+    env_discount = os.getenv('PAYPAL_PLAN_ID_4999') or ''
     stored = sub.discount_plan_id if sub and sub.discount_plan_id else ''
     stored_valid = bool(stored) and stored.startswith('P-')
     has_discount = PromoRedemption.objects.filter(user=user, promo__kind=PromoCode.KIND_DISCOUNT_9999).exists() or stored_valid
@@ -266,7 +273,7 @@ def create_subscription(request):
             plan_id = env_regular
             logger.info('subscription.create.plan.source env_regular plan_id=%s', plan_id)
         else:
-            plan_id = _ensure_plan_for_price(token, 15000)
+            plan_id = _ensure_plan_for_price(token, 9999)
             logger.info('subscription.create.plan.source ensured_regular plan_id=%s', plan_id)
 
     if sub and stored and not stored_valid:
@@ -383,8 +390,8 @@ def get_gold_page(request):
         has_discount = PromoRedemption.objects.filter(user=request.user, promo__kind=PromoCode.KIND_DISCOUNT_9999).exists()
     mode = os.getenv('PAYPAL_MODE', 'sandbox').lower()
     currency = os.getenv('PAYPAL_CURRENCY') or ('USD' if mode == 'live' else 'KRW')
-    pr_def = '10.99' if currency == 'USD' else '15000'
-    pd_def = '6.99' if currency == 'USD' else '9999'
+    pr_def = '7.99' if currency == 'USD' else '9999'
+    pd_def = '3.99' if currency == 'USD' else '4999'
     pr_env = os.getenv('PAYPAL_PRICE_REGULAR') or pr_def
     pd_env = os.getenv('PAYPAL_PRICE_DISCOUNT') or pd_def
     price_str = pd_env if has_discount else pr_env
