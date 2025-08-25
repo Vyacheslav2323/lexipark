@@ -200,7 +200,7 @@ class ImageAnalysis {
         const a = parts[3] !== undefined ? parseFloat(parts[3]) : 1;
         const base = `rgba(${r}, ${g}, ${b}, ${isNaN(a) ? 1 : a})`;
         const transparent = `rgba(${r}, ${g}, ${b}, 0)`;
-        return `linear-gradient(to bottom, ${transparent} 0%, ${transparent} 90%, ${base} 100%)`;
+        return `linear-gradient(to bottom, ${transparent} 0%, ${transparent} 70%, ${base} 100%)`;
     }
 
     async displayImageWithText(ocrDataObj) {
@@ -274,7 +274,7 @@ class ImageAnalysis {
                     overlay.classList.add('in-vocab');
                     overlay.style.background = this.gradientForColor(wordData.color);
                 } else {
-                    const subtle = 'rgba(212, 237, 218, 0.6)';
+                    const subtle = 'rgba(116, 230, 143, 0.6)';
                     overlay.style.background = this.gradientForColor(subtle);
                 }
                 overlay.style.position = 'absolute';
@@ -356,7 +356,7 @@ window.renderPrecomputedTokenBoxes = function(opts) {
             el.style.top = (b.y * wrap.clientHeight) + 'px';
             el.style.width = (b.w * wrap.clientWidth) + 'px';
             el.style.height = (b.h * wrap.clientHeight) + 'px';
-            var baseColor = it.in_vocab ? it.color : 'rgba(238, 179, 196, 0.6)';
+            var baseColor = it.in_vocab ? it.color : 'rgba(116, 230, 143, 0.6)';
             el.style.background = window.overlayGradientForColor(baseColor);
             el.style.pointerEvents = 'auto';
             el.style.cursor = 'pointer';
