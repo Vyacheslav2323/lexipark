@@ -1,4 +1,4 @@
-const CACHE_NAME = 'lexipark-cache-v1'
+const CACHE_NAME = 'lexipark-cache-v2'
 const CORE_ASSETS = [
   '/',
   '/static/css/theme.css'
@@ -19,6 +19,11 @@ self.addEventListener('activate', event => {
 self.addEventListener('fetch', event => {
   const req = event.request
   if (req.method !== 'GET') return
+  const accept = req.headers.get('accept') || ''
+  const isHTML = accept.includes('text/html')
+  if (isHTML) {
+    return
+  }
   event.respondWith(
     caches.match(req).then(cached => cached || fetch(req).then(res => {
       const copy = res.clone()

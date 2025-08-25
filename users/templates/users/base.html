@@ -2,6 +2,7 @@
 <!DOCTYPE html>
 <html>
 <head>
+    <meta charset="utf-8">
     <title>{% block title %}LexiPark{% endblock %}</title>
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="theme-color" content="#111827">
@@ -13,39 +14,44 @@
     
 </head>
 <body>
-    <nav class="navbar navbar-expand-lg navbar-dark shadow-sm">
+    <nav class="navbar navbar-expand-md navbar-dark shadow-sm">
         <div class="container">
             <a class="navbar-brand fw-bold" href="{% url 'home' %}">
                 <i class="fas fa-home me-2"></i>LexiPark
             </a>
-            <div class="navbar-nav ms-auto">
-                <a class="nav-link" href="{% url 'analysis:analyze' %}">
-                    <i class="fas fa-language me-1"></i>Text Analysis
-                </a>
-                <a class="nav-link" href="{% url 'analysis:image_analysis' %}">
-                    <i class="fas fa-image me-1"></i>Image Analysis
-                </a>
-                <a class="nav-link" href="{% url 'users:profile' %}">
-                    <i class="fas fa-book me-1"></i>My Vocabulary
-                </a>
-                <a class="nav-link" href="{% url 'vocab:vocabulary_test' %}">
-                    <i class="fas fa-question-circle me-1"></i>Vocabulary Test
-                </a>
-                {% if user.is_authenticated %}
-                    <a class="nav-link me-3" href="{% url 'users:stats' %}">
-                        <i class="fas fa-user me-1"></i>Welcome, {{ user.username }}!
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav" aria-controls="mainNav" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="mainNav">
+                <div class="navbar-nav ms-auto">
+                    <a class="nav-link" href="{% url 'analysis:analyze' %}">
+                        <i class="fas fa-language me-1"></i>Text Analysis
                     </a>
-                    <a class="nav-link text-danger" href="{% url 'users:logout' %}">
-                        <i class="fas fa-sign-out-alt me-1"></i>Logout
+                    <a class="nav-link" href="{% url 'analysis:image_analysis' %}">
+                        <i class="fas fa-image me-1"></i>Image Analysis
                     </a>
-                {% else %}
-                    <a class="nav-link" href="{% url 'users:login' %}">
-                        <i class="fas fa-sign-in-alt me-1"></i>Login
+                    <a class="nav-link" href="{% url 'users:profile' %}">
+                        <i class="fas fa-book me-1"></i>My Vocabulary
                     </a>
-                    <a class="nav-link" href="{% url 'users:register' %}">
-                        <i class="fas fa-user-plus me-1"></i>Register
+                    <a class="nav-link" href="{% url 'vocab:vocabulary_test' %}">
+                        <i class="fas fa-question-circle me-1"></i>Vocabulary Test
                     </a>
-                {% endif %}
+                    {% if user.is_authenticated %}
+                        <a class="nav-link me-3" href="{% url 'users:stats' %}">
+                            <i class="fas fa-user me-1"></i>Welcome, {{ user.username }}!
+                        </a>
+                        <a class="nav-link text-danger" href="{% url 'users:logout' %}">
+                            <i class="fas fa-sign-out-alt me-1"></i>Logout
+                        </a>
+                    {% else %}
+                        <a class="nav-link" href="{% url 'users:login' %}">
+                            <i class="fas fa-sign-in-alt me-1"></i>Login
+                        </a>
+                        <a class="nav-link" href="{% url 'users:register' %}">
+                            <i class="fas fa-user-plus me-1"></i>Register
+                        </a>
+                    {% endif %}
+                </div>
             </div>
         </div>
     </nav>
@@ -63,6 +69,38 @@
                 var isLocalhost = ['localhost','127.0.0.1'].indexOf(location.hostname) !== -1
                 if (location.protocol === 'https:' || isLocalhost) {
                     navigator.serviceWorker.register('/service-worker.js').catch(function(){})
+                }
+            }
+        }catch(_){ }
+    })()
+    </script>
+    <script>
+    (function(){
+        function getCookie(name){
+            var v = document.cookie ? document.cookie.split(';') : []
+            for (var i=0;i<v.length;i++){
+                var c = v[i].trim()
+                if (c.substring(0, name.length + 1) === (name + '=')) return decodeURIComponent(c.substring(name.length + 1))
+            }
+            return null
+        }
+        try{
+            var token = getCookie('csrftoken') || ''
+            if (token) {
+                window.CSRF_TOKEN = token
+                var _fetch = window.fetch
+                window.fetch = function(input, init){
+                    try{
+                        var url = typeof input === 'string' ? input : (input && input.url) || ''
+                        var method = ((init && init.method) || 'GET').toUpperCase()
+                        var sameOrigin = url.startsWith('/') || url.indexOf(location.origin) === 0
+                        if (sameOrigin && (method === 'POST' || method === 'PUT' || method === 'PATCH' || method === 'DELETE')){
+                            init = init || {}
+                            init.headers = Object.assign({ 'X-CSRFToken': token }, init.headers || {})
+                            if (!init.credentials) init.credentials = 'same-origin'
+                        }
+                    }catch(_){ }
+                    return _fetch(input, init)
                 }
             }
         }catch(_){ }

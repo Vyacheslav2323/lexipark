@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "LexiPark",
+  "name": "LexiPark (Beta)",
   "short_name": "LexiPark",
   "description": "Korean reading assistant: hover translations, save vocabulary, comprehension overlays.",
   "version": "0.2.0",

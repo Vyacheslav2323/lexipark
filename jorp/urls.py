@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.urls import path, include
-from django.shortcuts import redirect
+from django.shortcuts import render
 from django.http import HttpResponse
 from django.conf import settings
 import os
@@ -8,7 +8,7 @@ from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from .views import aasa_view
 
 def home_view(request):
-    return redirect('analysis:analyze')
+    return render(request, 'users/landing.html')
 
 urlpatterns = [
     path('', home_view, name='home'),

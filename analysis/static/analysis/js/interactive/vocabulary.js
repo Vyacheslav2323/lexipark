@@ -26,10 +26,16 @@ export function saveToVocabulary(koreanWord, pos, grammarInfo, translation) {
           showNotification('Word saved to vocabulary!', 'success');
           if (window.applyOcrOverlayColor && data.color) {
             window.applyOcrOverlayColor(koreanWord, data.color);
-          } else {
+          } else if (window.overlayGradientForColor) {
+            document.querySelectorAll('.ocr-word.interactive-word[data-original="' + koreanWord + '"]').forEach(function(el){
+              el.classList.add('in-vocab');
+              el.style.background = window.overlayGradientForColor('rgba(238, 179, 196, 0.9)');
+              el.style.backgroundColor = '';
+            });
             document.querySelectorAll('.interactive-word:not(.ocr-word)[data-original="' + koreanWord + '"]').forEach(function(el) {
               el.classList.add('in-vocab');
-              el.style.backgroundColor = 'rgba(255, 255, 0, 0.9)';
+              el.style.background = '';
+              el.style.backgroundColor = 'rgba(238, 179, 196, 0.9)';
             });
           }
         } else {

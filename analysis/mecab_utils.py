@@ -113,7 +113,7 @@ def retention_to_color(retention_rate):
         return "transparent"
     alpha = 1 - (retention_rate - 0.1) / 0.9
     alpha = max(0, min(1, alpha))
-    return f"rgba(255, 255, 0, {alpha:.2f})"
+    return f"rgba(238, 179, 196, {alpha:.2f})"
 
 def create_interactive_sentence(sentence, results, translations, vocab_words=None):
     if vocab_words is None:

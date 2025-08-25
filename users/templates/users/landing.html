@@ -1,0 +1,120 @@
+{% extends 'users/base.html' %}
+{% load static %}
+{% block title %}Lexipark — AI-Powered Korean Learning App for Foreigners in Korea{% endblock %}
+{% block extra_css %}
+<meta name="description" content="Learn practical Korean vocabulary with Lexipark. AI-powered app for workers, students, and expats in Korea. Try free today!">
+<link href="{% static 'analysis/css/interactive.css' %}" rel="stylesheet">
+<link href="{% static 'analysis/css/image_analysis.css' %}" rel="stylesheet">
+{% endblock %}
+{% block content %}
+<section class="py-5">
+  <div class="row align-items-center">
+    <div class="col-lg-6 mb-4 mb-lg-0">
+      <h1 class="display-5 fw-bold">Learn Korean the smart way</h1>
+      <p class="lead mt-3">Lexipark helps you learn Korean by consuming media you actually like!</p>
+      <div class="d-grid gap-3 d-sm-flex mt-4">
+        <a href="#" class="btn btn-primary btn-lg w-100 w-sm-auto">Try Chrome Extension</a>
+        <a href="{% url 'analysis:analyze' %}" class="btn btn-outline-danger btn-lg w-100 w-sm-auto">Try now!</a>
+      </div>
+      <div class="mt-4">
+        <ol class="list-unstyled">
+          <li class="mb-2">1️⃣ Hover over an unknown word to see its translation.</li>
+          <li class="mb-2">2️⃣ Click the word to add it to your vocabulary list.</li>
+          <li class="mb-2">3️⃣ Click the translation to see more examples.</li>
+        </ol>
+      </div>
+    </div>
+    <div class="col-lg-6">
+      <div class="card shadow-sm">
+        <div class="card-body text-center">
+          <div style="position:relative; display:inline-block; max-width:100%;">
+            <img id="promo-img" src="{% static 'icons/promo.jpg' %}" alt="Lexipark app preview" style="max-width:100%; height:auto; display:block;">
+            <div id="promo-overlays" style="position:absolute; left:0; top:0; right:0; bottom:0; pointer-events:auto;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+{% block extra_js %}
+<script type="module" src="{% static 'analysis/js/interactive/index.js' %}"></script>
+<script src="{% static 'analysis/js/image_analysis.js' %}"></script>
+<script>
+(function(){
+  function renderLanding(){
+    var layer = document.getElementById('promo-overlays')
+    if (!layer) return
+    fetch("{% static 'icons/promo.mecab.json' %}", { credentials: 'same-origin' })
+      .then(function(r){ return r.json() })
+      .then(function(data){
+        var items = (data.token_boxes || data.ocr_data || []).slice(0, 200)
+        window.renderPrecomputedTokenBoxes({ layerId: 'promo-overlays', items: items })
+      }).catch(function(){})
+  }
+  if (document.readyState === 'complete' || document.readyState === 'interactive') setTimeout(renderLanding, 0)
+  else document.addEventListener('DOMContentLoaded', renderLanding)
+  window.addEventListener('resize', renderLanding)
+})()
+</script>
+{% endblock %}
+
+<section class="py-5 mt-5">
+  <h2 class="h3 mb-4 text-center">How to Learn Korean Effectively with Lexipark</h2>
+  <div class="row g-3">
+    <div class="col-md-4">
+      <div class="card h-100">
+        <div class="card-body text-center">
+          <div class="fw-bold mb-2">🔍 Analyze Any Text or Image</div>
+          <div>Upload or paste Korean — unknown words are instantly highlighted.</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card h-100">
+        <div class="card-body text-center">
+          <div class="fw-bold mb-2">📒 Track All Your Vocabulary</div>
+          <div>Every word you see is saved in your personal word bank.</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-md-4">
+      <div class="card h-100">
+        <div class="card-body text-center">
+          <div class="fw-bold mb-2">🎨 Retain with Color-Coding</div>
+          <div>🟢 Unknown • 💖 Learning • ⚪ Mastered</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="d-grid mt-4">
+    <a href="{% url 'users:register' %}" class="btn btn-success btn-lg mx-auto">Start Learning Now</a>
+  </div>
+  </section>
+
+<section class="py-5 bg-light rounded">
+  <div class="text-center">
+    <h2 class="h3">Start learning Korean smarter — free to try today</h2>
+    <div class="d-grid gap-3 d-sm-inline-flex mt-3">
+      <a href="https://chromewebstore.google.com/detail/maeildagjgjbdmaacniimlofondojfmc?utm_source=item-share-cb" class="btn btn-primary btn-lg">Try Chrome Extension</a>
+      <a href="{% url 'analysis:analyze' %}" class="btn btn-outline-danger btn-lg">Try now!</a>
+    </div>
+  </div>
+</section>
+
+<section class="py-4">
+  <div class="row align-items-center">
+    <div class="col-md-6">
+      <div class="d-flex gap-3">
+        <a href="{% url 'users:privacy' %}">Privacy</a>
+        <a href="mailto:vyacheslav.pak2323@gmail.com">Contact</a>
+      </div>
+    </div>
+    <div class="col-md-6 mt-3 mt-md-0">
+      <div class="d-flex gap-2">
+        <input type="email" class="form-control" placeholder="Email for updates">
+        <a href="mailto:vyacheslav.pak2323@gmail.com?subject=Subscribe%20to%20Lexipark%20updates" class="btn btn-secondary">Sign up</a>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}

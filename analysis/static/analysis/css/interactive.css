@@ -36,6 +36,22 @@
     z-index: 1000;
 }
 
+/* Clickable tooltip link wrapper */
+.interactive-word .lp-tip-link {
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #333;
+    color: #fff;
+    padding: 5px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    white-space: nowrap;
+    z-index: 1000;
+    text-decoration: none;
+}
+
 .interactive-word:hover::after {
     opacity: 1;
 }

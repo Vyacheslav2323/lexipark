@@ -169,7 +169,15 @@
         const tip = document.createElement('span')
         tip.className = 'lp-tooltip'
         const meta = trans.get(match)
-        tip.textContent = (meta && meta.translation ? meta.translation : (meta && meta.base ? meta.base : match))
+        const tipText = (meta && meta.translation ? meta.translation : (meta && meta.base ? meta.base : match))
+        const a = document.createElement('a')
+        a.href = 'https://papago.naver.com/?sk=ko&tk=en&hn=0&st=' + encodeURIComponent(meta && meta.base ? meta.base : match)
+        a.target = '_blank'
+        a.rel = 'noopener noreferrer'
+        a.style.color = '#fff'
+        a.style.textDecoration = 'none'
+        a.textContent = tipText
+        tip.appendChild(a)
         if (meta && typeof meta === 'object') {
           if (meta.in_vocab) span.classList.add('in-vocab')
           if (meta.color && String(meta.color).toLowerCase() !== 'transparent') {

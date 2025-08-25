@@ -220,3 +220,6 @@ npx cap sync
 - **Django Issues**: [Django Community](https://www.djangoproject.com/community/)
 
 
+
+
+

@@ -18,7 +18,7 @@ class ImageAnalysis {
             document.querySelectorAll('.interactive-word:not(.ocr-word)[data-original="' + original + '"]').forEach(el => {
                 el.classList.add('in-vocab');
                 el.style.background = '';
-                el.style.backgroundColor = 'rgba(255, 255, 0, 0.9)';
+                el.style.backgroundColor = 'rgba(238, 179, 196, 0.9)';
             });
         };
     }
@@ -200,7 +200,7 @@ class ImageAnalysis {
         const a = parts[3] !== undefined ? parseFloat(parts[3]) : 1;
         const base = `rgba(${r}, ${g}, ${b}, ${isNaN(a) ? 1 : a})`;
         const transparent = `rgba(${r}, ${g}, ${b}, 0)`;
-        return `linear-gradient(to bottom, ${transparent} 0%, ${transparent} 90%, ${base} 100%)`;
+        return `linear-gradient(to bottom, ${transparent} 0%, ${transparent} 70%, ${base} 100%)`;
     }
 
     async displayImageWithText(ocrDataObj) {
@@ -274,7 +274,7 @@ class ImageAnalysis {
                     overlay.classList.add('in-vocab');
                     overlay.style.background = this.gradientForColor(wordData.color);
                 } else {
-                    const subtle = 'rgba(212, 237, 218, 0.6)';
+                    const subtle = 'rgba(116, 230, 143, 0.6)';
                     overlay.style.background = this.gradientForColor(subtle);
                 }
                 overlay.style.position = 'absolute';
@@ -326,3 +326,51 @@ class ImageAnalysis {
 document.addEventListener('DOMContentLoaded', () => {
     new ImageAnalysis();
 });
+
+// Shared helpers for other pages (e.g., landing) to render precomputed token boxes
+window.overlayGradientForColor = function(color) {
+    try { return ImageAnalysis.prototype.gradientForColor.call({}, color); } catch (e) { return color || ''; }
+}
+
+window.renderPrecomputedTokenBoxes = function(opts) {
+    try{
+        var layer = document.getElementById(opts && opts.layerId);
+        if (!layer) return;
+        var wrap = layer.parentElement;
+        layer.innerHTML = '';
+        var items = Array.isArray(opts && opts.items) ? opts.items : [];
+        var words = [];
+        for (var i=0;i<items.length;i++){
+            var it = items[i];
+            var b = (it && (it.bbox || it.boundingBox)) || null;
+            if (!b) continue;
+            var el = document.createElement('div');
+            el.className = 'text-overlay interactive-word ocr-word';
+            var base = (it.base || it.text || it.surface || '');
+            el.setAttribute('data-original', base);
+            el.setAttribute('data-translation', it.translation || '');
+            if (it.pos) el.setAttribute('data-pos', it.pos);
+            if (it.grammar) el.setAttribute('data-grammar', it.grammar);
+            el.style.position = 'absolute';
+            el.style.left = (b.x * wrap.clientWidth) + 'px';
+            el.style.top = (b.y * wrap.clientHeight) + 'px';
+            el.style.width = (b.w * wrap.clientWidth) + 'px';
+            el.style.height = (b.h * wrap.clientHeight) + 'px';
+            var baseColor = it.in_vocab ? it.color : 'rgba(116, 230, 143, 0.6)';
+            el.style.background = window.overlayGradientForColor(baseColor);
+            el.style.pointerEvents = 'auto';
+            el.style.cursor = 'pointer';
+            el.style.zIndex = '1000';
+            el.style.minWidth = '10px';
+            el.style.minHeight = '10px';
+            el.style.boxSizing = 'border-box';
+            layer.appendChild(el);
+            if (!it.translation && base) words.push(base);
+            if (window.bindWordElementEvents) window.bindWordElementEvents(el);
+        }
+        if (window.queueSequentialTranslations && words.length){
+            var uniq = Array.from(new Set(words.filter(Boolean)));
+            window.queueSequentialTranslations(uniq);
+        }
+    }catch(_){ }
+}

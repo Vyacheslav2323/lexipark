@@ -32,6 +32,10 @@ function runTranslationQueue() {
       const t = d && d.success ? d.translation : '';
       document.querySelectorAll('.interactive-word[data-original="'+next+'"]').forEach(node=>{
         if (t && shouldTranslate(next, node)) node.setAttribute('data-translation', t);
+        try{
+          const tip = node.querySelector('.lp-tip');
+          if (tip && t) tip.textContent = t;
+        }catch(_){ }
       });
     })
     .catch(()=>{})
@@ -78,9 +82,28 @@ function trackHoverDuration(koreanWord, duration) {
 export function bindWordElementEvents(word) {
   let hoverStartTime = null;
   const original = word.getAttribute('data-original');
+  try{
+    if (!word.querySelector('.lp-tip-link')){
+      const link = document.createElement('a');
+      link.className = 'lp-tip-link';
+      link.target = '_blank';
+      link.rel = 'noopener noreferrer';
+      link.style.display = 'none';
+      word.appendChild(link);
+    }
+  }catch(_){ }
   word.addEventListener('mouseenter', function() {
     hoverStartTime = Date.now();
     ensureQueuedTranslation(original, word);
+    try{
+      const q = encodeURIComponent(original || '');
+      const tipLink = word.querySelector('.lp-tip-link');
+      if (tipLink){
+        tipLink.href = 'https://papago.naver.com/?sk=ko&tk=en&hn=0&st=' + q;
+        tipLink.textContent = word.getAttribute('data-translation') || original || '';
+        tipLink.style.display = 'inline-block';
+      }
+    }catch(_){ }
   });
   word.addEventListener('mouseleave', function() {
     if (hoverStartTime) {
@@ -93,6 +116,7 @@ export function bindWordElementEvents(word) {
       }
       hoverStartTime = null;
     }
+    try{ const tipLink = word.querySelector('.lp-tip-link'); if (tipLink) tipLink.style.display = 'none'; }catch(_){ }
   });
   word.addEventListener('click', function() {
     const translation = this.getAttribute('data-translation');
