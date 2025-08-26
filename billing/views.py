@@ -10,6 +10,7 @@ from django.shortcuts import redirect
 from django.utils.dateparse import parse_datetime
 from urllib.parse import urlparse, urlunparse
 from .models import Subscription, PromoCode, PromoRedemption
+from .utils import is_ios_request
 from django.shortcuts import render
 import logging
 
@@ -230,6 +231,8 @@ def _ensure_discount_plan(access_token):
 
 @login_required
 def subscription_status(request):
+    if is_ios_request(request):
+        return JsonResponse({ 'active': True, 'status': 'ACTIVE', 'trial_end_at': None, 'current_period_end': None, 'lifetime_free': True })
     sub = Subscription.objects.filter(user=request.user).first()
     if not sub:
         return JsonResponse({ 'active': False })
@@ -244,6 +247,8 @@ def subscription_status(request):
 
 @login_required
 def create_subscription(request):
+    if is_ios_request(request):
+        return JsonResponse({ 'approval_url': None, 'id': None })
     user = request.user
     logger.info('subscription.create.start user=%s', user.id)
     token = _paypal_token()
@@ -377,6 +382,8 @@ def webhook(request):
 
 @login_required
 def get_gold_page(request):
+    if is_ios_request(request):
+        return render(request, 'billing/get_gold.html', { 'active': True, 'display_currency': 'KRW', 'display_price': '0' })
     sub = Subscription.objects.filter(user=request.user).first()
     active = False
     if sub and sub.status == 'ACTIVE':

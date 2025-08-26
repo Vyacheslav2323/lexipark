@@ -12,9 +12,10 @@
             <div class="fw-bold">Username: {{ username }}</div>
             <div>Email: {{ email|default:'—' }}</div>
           </div>
-          <div>
+          <div class="d-flex align-items-end flex-column gap-2">
             <div>Registered: {{ date_joined|date:"Y-m-d" }}</div>
             <div>Subscription: <span class="badge {% if subscription_label == 'gold' %}bg-warning text-dark{% else %}bg-secondary{% endif %}">{{ subscription_label|title }}</span></div>
+            <a href="{% url 'users:delete_account' %}" class="btn btn-outline-danger btn-sm">Delete account</a>
           </div>
         </div>
       </div>

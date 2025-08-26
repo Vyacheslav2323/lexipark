@@ -15,6 +15,7 @@ from rest_framework.permissions import IsAuthenticated
 from django.utils import timezone
 from datetime import timedelta
 from billing.models import Subscription
+from billing.utils import is_ios_request
 
 # Create your views here.
 
@@ -86,7 +87,10 @@ def stats_view(request):
         active = True
     elif sub and sub.trial_end_at and sub.trial_end_at > timezone.now():
         active = True
-    label = 'gold' if active else 'basic'
+    if is_ios_request(request):
+        label = 'gold'
+    else:
+        label = 'gold' if active else 'basic'
     total_words = Vocabulary.objects.filter(user=request.user).count()
     ctx = {
         'series': series,
@@ -198,3 +202,12 @@ def api_me(request):
 def me_session(request):
     return JsonResponse({'success': True, 'username': request.user.username})
 
+
+@login_required
+def delete_account_view(request):
+    if request.method == 'POST':
+        u = request.user
+        logout(request)
+        u.delete()
+        return redirect('home')
+    return render(request, 'users/delete_account.html')
