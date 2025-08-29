@@ -3,7 +3,7 @@
   "name": "LexiPark (Beta)",
   "short_name": "LexiPark",
   "description": "Korean reading assistant: hover translations, save vocabulary, comprehension overlays.",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "permissions": ["storage", "activeTab", "scripting"],
   "host_permissions": [
     "http://localhost:8082/*",
@@ -11,6 +11,12 @@
     "https://lexipark.onrender.com/*"
   ],
   "action": { "default_popup": "popup.html" },
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
   "background": { "service_worker": "background.js" },
   "content_scripts": [
     {

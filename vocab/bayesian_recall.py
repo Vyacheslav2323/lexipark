@@ -11,14 +11,15 @@ def get_user_parameters(user):
     }
 
 
-def calculate_time_delta(last_reviewed, previous_reviewed):
-    if previous_reviewed is None:
+def calculate_time_delta_seconds(previous_update):
+    if previous_update is None:
         return 0.0
-    delta = (last_reviewed - previous_reviewed).total_seconds() / 86400.0
+    now = timezone.now()
+    delta = (now - previous_update).total_seconds()
     return max(0.0, delta)
 
 
-def bayesian_recall_update(vocab_entry, success, user_parameters=None):
+def bayesian_recall_update(vocab_entry, had_lookup, user_parameters=None):
     if user_parameters is None:
         user_parameters = get_user_parameters(vocab_entry.user)
     
@@ -26,15 +27,12 @@ def bayesian_recall_update(vocab_entry, success, user_parameters=None):
     beta = vocab_entry.beta_prior
     lambda_decay = user_parameters['lambda_decay']
     
-    success_count = vocab_entry.recall_successes + (1 if success else 0)
-    failure_count = vocab_entry.recall_failures + (0 if success else 1)
+    success_count = vocab_entry.recall_successes + 1
+    failure_count = vocab_entry.recall_failures + (2 if had_lookup else 0)
     
-    delta_t = calculate_time_delta(
-        vocab_entry.last_reviewed, 
-        vocab_entry.last_recall_update
-    )
+    delta_seconds = calculate_time_delta_seconds(vocab_entry.last_recall_update)
     
-    time_decay = math.exp(-lambda_decay * delta_t)
+    time_decay = math.exp(-lambda_decay * (delta_seconds / 86400.0))
     
     recall_probability = (
         (alpha + success_count) / 
@@ -45,14 +43,12 @@ def bayesian_recall_update(vocab_entry, success, user_parameters=None):
 
 
 def update_vocabulary_recall(vocab_entry, had_lookup):
-    success = not had_lookup
-    
     user_params = get_user_parameters(vocab_entry.user)
-    new_recall = bayesian_recall_update(vocab_entry, success, user_params)
+    new_recall = bayesian_recall_update(vocab_entry, had_lookup, user_params)
     
     vocab_entry.retention_rate = new_recall
-    vocab_entry.recall_successes += 1 if success else 0
-    vocab_entry.recall_failures += 0 if success else 1
+    vocab_entry.recall_successes += 1
+    vocab_entry.recall_failures += 2 if had_lookup else 0
     vocab_entry.last_recall_update = timezone.now()
     
     return vocab_entry

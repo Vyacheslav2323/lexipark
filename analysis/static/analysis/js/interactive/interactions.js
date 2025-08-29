@@ -111,8 +111,10 @@ export function bindWordElementEvents(word) {
       trackHoverDuration(original, hoverDuration);
       state.hoveredWords.add(original);
       if (word.classList.contains('in-vocab') || word.style.backgroundColor) {
-        const hadLookup = hoverDuration > 1000;
-        addRecallInteraction(original, hadLookup);
+        if (hoverDuration >= 500) {
+          const hadLookup = true;
+          addRecallInteraction(original, hadLookup);
+        }
       }
       hoverStartTime = null;
     }

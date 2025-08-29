@@ -129,6 +129,16 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         sendResponse({ ok:false, error:String(e) })
       }
     }
+    if (msg.type === 'batch-recall') {
+      try {
+        const interactions = Array.isArray(msg.interactions) ? msg.interactions : []
+        const res = await apiFetchWithFallback(['/analysis/api/batch-recall', '/analysis/api/v1/batch-recall/'], { method: 'POST', body: JSON.stringify({ interactions }) })
+        const data = await res.json().catch(()=>({}))
+        sendResponse({ ok: res.ok, data })
+      } catch (e) {
+        sendResponse({ ok:false, error:String(e) })
+      }
+    }
   })()
   return true
 })

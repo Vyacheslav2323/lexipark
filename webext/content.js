@@ -275,26 +275,54 @@
   }
 
   let hoverBound = false
+  let recallInteractions = []
+  let recallBatchTimer = null
+  const HOVER_THRESHOLD_MS = 500
+  function queueRecallInteraction(word, hadLookup){
+    recallInteractions.push([word, !!hadLookup])
+    if (recallBatchTimer) clearTimeout(recallBatchTimer)
+    recallBatchTimer = setTimeout(() => {
+      const batch = recallInteractions.slice(); recallInteractions.length = 0
+      chrome.runtime.sendMessage({ type:'batch-recall', interactions: batch }, ()=>{})
+    }, 800)
+  }
   function bindWordHoverTranslate(){
     if (hoverBound) return
     document.addEventListener('mouseover', (e) => {
       const el = e.target && e.target.closest && e.target.closest('.interactive-word')
       if (!el) return
+      if (!el.__lpHoverStart) el.__lpHoverStart = 0
+      el.__lpHoverStart = Date.now()
       const has = el.dataset.translation && el.dataset.translation.trim().length>0
       const pending = el.dataset.trPending === '1'
-      if (has || pending) return
+      if (!has && !pending) {
+        const word = el.dataset.original || el.textContent || ''
+        if (!word) return
+        el.dataset.trPending = '1'
+        chrome.runtime.sendMessage({ type:'translate-word', word }, (tr) => {
+          const t = tr && tr.data && tr.data.translation ? tr.data.translation : ''
+          if (t) {
+            el.dataset.translation = t
+            const tip = el.querySelector('.lp-tooltip')
+            if (tip) tip.textContent = t
+          }
+          delete el.dataset.trPending
+        })
+      }
+    })
+    document.addEventListener('mouseout', (e) => {
+      const el = e.target && e.target.closest && e.target.closest('.interactive-word')
+      if (!el) return
+      const start = el.__lpHoverStart || 0
+      if (!start) return
+      const duration = Date.now() - start
+      delete el.__lpHoverStart
       const word = el.dataset.original || el.textContent || ''
       if (!word) return
-      el.dataset.trPending = '1'
-      chrome.runtime.sendMessage({ type:'translate-word', word }, (tr) => {
-        const t = tr && tr.data && tr.data.translation ? tr.data.translation : ''
-        if (t) {
-          el.dataset.translation = t
-          const tip = el.querySelector('.lp-tooltip')
-          if (tip) tip.textContent = t
-        }
-        delete el.dataset.trPending
-      })
+      const isKnown = el.classList.contains('in-vocab') || (el.style.backgroundColor && el.style.backgroundColor !== 'transparent')
+      if (isKnown && duration >= HOVER_THRESHOLD_MS) {
+        queueRecallInteraction(word, true)
+      }
     })
     hoverBound = true
   }
@@ -305,6 +333,13 @@
       const words = data.words || []
       log('analyze-result words:', words.length)
       if (words && words.length) annotateInlineFromWords(words)
+      try{
+        const appearances = (words||[]).map(w => (w.base||'').trim()).filter(Boolean)
+        if (appearances.length) {
+          const batch = appearances.map(w => [w, false])
+          chrome.runtime.sendMessage({ type:'batch-recall', interactions: batch }, ()=>{})
+        }
+      }catch(_){ }
       sendResponse({ ok:true })
     }
     if (msg.type === 'analyze-html-result') {
@@ -330,6 +365,13 @@
           }
         })
         if (tokens.length) annotateInlineFromWords(tokens)
+        try{
+          const appearances = tokens.map(t => (t.base||'').trim()).filter(Boolean)
+          if (appearances.length) {
+            const batch = appearances.map(w => [w, false])
+            chrome.runtime.sendMessage({ type:'batch-recall', interactions: batch }, ()=>{})
+          }
+        }catch(_){ }
       }
       sendResponse({ ok:true })
     }
