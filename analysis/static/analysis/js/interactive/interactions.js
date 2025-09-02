@@ -1,6 +1,6 @@
 import { translateWord as apiTranslateWord, translateSentence as apiTranslateSentence, trackHover as apiTrackHover, trackSentenceHover as apiTrackSentenceHover } from './api.js'
 import { addRecallInteraction } from './recall.js';
-import { saveToVocabulary } from './vocabulary.js';
+import { saveToVocabulary, paintLearning } from './vocabulary.js';
 import { state } from './state.js';
 function shouldTranslate(word, el) {
   if (!word) return false;
@@ -50,6 +50,34 @@ function queueSequentialTranslations(words) {
 }
 import { showNotification, showSentenceTranslation, hideSentenceTranslation } from './ui.js';
 import { handleAnalyzeSubmit } from './analysis.js';
+
+function isMobile() {
+  try { if (navigator.maxTouchPoints && navigator.maxTouchPoints > 0) return true; } catch(_) {}
+  try { if ('ontouchstart' in window) return true; } catch(_) {}
+  return false;
+}
+
+function mobileClickSaveOrPrime(el) {
+  const original = el.getAttribute('data-original');
+  const pos = el.getAttribute('data-pos');
+  const grammar = el.getAttribute('data-grammar');
+  const translation = el.getAttribute('data-translation');
+  const isInVocab = el.classList.contains('in-vocab');
+  if (!original) return false;
+  if (isInVocab) { showNotification('Word is already in your vocabulary!', 'info'); return false; }
+  if (!el.classList.contains('tap-primed')) {
+    ensureQueuedTranslation(original, el);
+    try { const tip = el.querySelector('.lp-tip-link'); if (tip) { tip.textContent = translation || original; tip.style.display = 'inline-block'; } } catch(_) {}
+    el.classList.add('tap-primed');
+    setTimeout(function(){ try { el.classList.remove('tap-primed'); const tip = el.querySelector('.lp-tip-link'); if (tip) tip.style.display='none'; } catch(_){} }, 3000);
+    return false;
+  }
+  try { paintLearning(original); } catch(_) {}
+  saveToVocabulary(original, pos, grammar, translation);
+  el.classList.remove('tap-primed');
+  try { const tip = el.querySelector('.lp-tip-link'); if (tip) tip.style.display='none'; } catch(_) {}
+  return true;
+}
 
 function trackSentenceHoverDuration(punctuation, duration) {
   apiTrackSentenceHover({ punctuation, duration })
@@ -125,11 +153,16 @@ export function bindWordElementEvents(word) {
     const pos = this.getAttribute('data-pos');
     const grammar = this.getAttribute('data-grammar');
     const isInVocab = this.classList.contains('in-vocab');
+    if (isMobile()) {
+      mobileClickSaveOrPrime(this);
+      return;
+    }
     if (isInVocab) {
       showNotification('Word is already in your vocabulary!', 'info');
       state.hoveredWords.add(original);
       addRecallInteraction(original, true);
     } else {
+      try { paintLearning(original); } catch(_) { }
       saveToVocabulary(original, pos, grammar, translation);
     }
   });
@@ -231,6 +264,16 @@ export function setupWordsEvents() {
         e.preventDefault();
       }
     });
+  }
+  if (isMobile()) {
+    document.addEventListener('touchstart', function(e){
+      const w = e.target.closest ? e.target.closest('.interactive-word') : null;
+      if (w) return;
+      document.querySelectorAll('.interactive-word.tap-primed').forEach(function(el){
+        el.classList.remove('tap-primed');
+        try { const tip = el.querySelector('.lp-tip-link'); if (tip) tip.style.display='none'; } catch(_) {}
+      });
+    }, true);
   }
 }
 

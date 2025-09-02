@@ -37,6 +37,17 @@ export function saveToVocabulary(koreanWord, pos, grammarInfo, translation) {
               el.style.background = '';
               el.style.backgroundColor = 'rgba(238, 179, 196, 0.9)';
             });
+          } else {
+            document.querySelectorAll('.ocr-word.interactive-word[data-original="' + koreanWord + '"]').forEach(function(el){
+              el.classList.add('in-vocab');
+              el.style.background = '';
+              el.style.backgroundColor = 'rgba(238, 179, 196, 0.9)';
+            });
+            document.querySelectorAll('.interactive-word:not(.ocr-word)[data-original="' + koreanWord + '"]').forEach(function(el) {
+              el.classList.add('in-vocab');
+              el.style.background = '';
+              el.style.backgroundColor = 'rgba(238, 179, 196, 0.9)';
+            });
           }
         } else {
           console.error('Error saving vocabulary:', data.message);
@@ -48,4 +59,32 @@ export function saveToVocabulary(koreanWord, pos, grammarInfo, translation) {
         showNotification('Login to continue', 'error');
       });
   });
+}
+
+export function paintLearning(koreanWord) {
+  const ocrEls = document.querySelectorAll('.ocr-word.interactive-word[data-original="' + koreanWord + '"]');
+  const textEls = document.querySelectorAll('.interactive-word:not(.ocr-word)[data-original="' + koreanWord + '"]');
+  if (window.overlayGradientForColor) {
+    ocrEls.forEach(function(el){
+      el.classList.add('in-vocab');
+      el.style.background = window.overlayGradientForColor('rgba(238, 179, 196, 0.9)');
+      el.style.backgroundColor = '';
+    });
+    textEls.forEach(function(el) {
+      el.classList.add('in-vocab');
+      el.style.background = '';
+      el.style.backgroundColor = 'rgba(238, 179, 196, 0.9)';
+    });
+  } else {
+    ocrEls.forEach(function(el){
+      el.classList.add('in-vocab');
+      el.style.background = '';
+      el.style.backgroundColor = 'rgba(238, 179, 196, 0.9)';
+    });
+    textEls.forEach(function(el) {
+      el.classList.add('in-vocab');
+      el.style.background = '';
+      el.style.backgroundColor = 'rgba(238, 179, 196, 0.9)';
+    });
+  }
 }

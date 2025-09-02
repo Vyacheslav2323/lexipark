@@ -26,6 +26,7 @@ class ImageAnalysis {
     init() {
         this.bindEvents();
         this.setupDragAndDrop();
+        this.setupPinchZoom();
     }
     
     bindEvents() {
@@ -205,6 +206,7 @@ class ImageAnalysis {
 
     async displayImageWithText(ocrDataObj) {
         const imageContainer = document.getElementById('imageContainer');
+        const viewport = document.getElementById('imageViewport');
         if (!imageContainer) return;
         if (window.getComputedStyle(imageContainer).position === 'static') {
             imageContainer.style.position = 'relative';
@@ -298,6 +300,84 @@ class ImageAnalysis {
         }
         clearInterval(tick);
         loader.remove();
+    }
+
+    setupPinchZoom() {
+        const viewport = document.getElementById('imageViewport');
+        const container = document.getElementById('imageContainer');
+        if (!viewport || !container) return;
+        let scale = 1;
+        let lastScale = 1;
+        let startDistance = 0;
+        let originX = 0;
+        let originY = 0;
+        let offsetX = 0;
+        let offsetY = 0;
+        let lastX = 0;
+        let lastY = 0;
+        let isPanning = false;
+        function distance(touches){
+            const dx = touches[0].clientX - touches[1].clientX;
+            const dy = touches[0].clientY - touches[1].clientY;
+            return Math.hypot(dx, dy);
+        }
+        function getMidpoint(touches){
+            return {
+                x: (touches[0].clientX + touches[1].clientX) / 2,
+                y: (touches[0].clientY + touches[1].clientY) / 2
+            };
+        }
+        function applyTransform(){
+            container.style.transformOrigin = originX + 'px ' + originY + 'px';
+            container.style.transform = 'translate(' + offsetX + 'px,' + offsetY + 'px) scale(' + scale + ')';
+            container.style.willChange = 'transform';
+        }
+        viewport.addEventListener('touchstart', function(e){
+            if (e.touches.length === 2) {
+                startDistance = distance(e.touches);
+                const mid = getMidpoint(e.touches);
+                const rect = container.getBoundingClientRect();
+                originX = mid.x - rect.left;
+                originY = mid.y - rect.top;
+                lastScale = scale;
+                isPanning = false;
+            } else if (e.touches.length === 1) {
+                isPanning = true;
+                lastX = e.touches[0].clientX - offsetX;
+                lastY = e.touches[0].clientY - offsetY;
+            }
+        }, { passive: false });
+        viewport.addEventListener('touchmove', function(e){
+            if (e.touches.length === 2) {
+                e.preventDefault();
+                const d = distance(e.touches);
+                scale = Math.max(1, Math.min(6, (d / startDistance) * lastScale));
+                applyTransform();
+            } else if (e.touches.length === 1 && isPanning) {
+                e.preventDefault();
+                offsetX = e.touches[0].clientX - lastX;
+                offsetY = e.touches[0].clientY - lastY;
+                applyTransform();
+            }
+        }, { passive: false });
+        viewport.addEventListener('touchend', function(){
+            isPanning = false;
+        });
+        viewport.addEventListener('wheel', function(e){
+            const delta = e.deltaY;
+            const rect = container.getBoundingClientRect();
+            const mx = e.clientX - rect.left;
+            const my = e.clientY - rect.top;
+            const factor = delta < 0 ? 1.1 : 0.9;
+            const newScale = Math.max(1, Math.min(6, scale * factor));
+            const scaleChange = newScale / scale;
+            offsetX = (offsetX - mx) * scaleChange + mx;
+            offsetY = (offsetY - my) * scaleChange + my;
+            scale = newScale;
+            originX = mx;
+            originY = my;
+            applyTransform();
+        }, { passive: true });
     }
     
     clearResults() {
