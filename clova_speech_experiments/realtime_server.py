@@ -9,12 +9,26 @@ import grpc
 from logger import log_error, log_tried, log_working
 
 
+def _import_stubs():
+    try:
+        from clova_speech_experiments import nest_pb2_grpc as _pbg, nest_pb2 as _pb
+        return _pb, _pbg
+    except Exception:
+        try:
+            import nest_pb2_grpc as _pbg  # type: ignore
+            import nest_pb2 as _pb  # type: ignore
+            return _pb, _pbg
+        except Exception:
+            return None, None
+
 def make_stub():
     try:
-        import nest_pb2_grpc
+        _, pbg = _import_stubs()
+        if pbg is None:
+            return None
         u = os.getenv("CLOVA_SPEECH_GRPC_URL", "")
         c = grpc.secure_channel(u, grpc.ssl_channel_credentials())
-        return nest_pb2_grpc.NestServiceStub(c)
+        return pbg.NestServiceStub(c)
     except Exception:
         return None
 
@@ -30,13 +44,17 @@ def cfg_json():
 
 
 def req_cfg():
-    import nest_pb2
-    return nest_pb2.NestRequest(type=nest_pb2.RequestType.CONFIG, config=nest_pb2.NestConfig(config=json.dumps(cfg_json())))
+    pb, _ = _import_stubs()
+    if pb is None:
+        raise RuntimeError("stubs missing")
+    return pb.NestRequest(type=pb.RequestType.CONFIG, config=pb.NestConfig(config=json.dumps(cfg_json())))
 
 
 def req_dat(chunk, seq, ep):
-    import nest_pb2
-    return nest_pb2.NestRequest(type=nest_pb2.RequestType.DATA, data=nest_pb2.NestData(chunk=chunk, extra_contents=json.dumps({"seqId": seq, "epFlag": ep})))
+    pb, _ = _import_stubs()
+    if pb is None:
+        raise RuntimeError("stubs missing")
+    return pb.NestRequest(type=pb.RequestType.DATA, data=pb.NestData(chunk=chunk, extra_contents=json.dumps({"seqId": seq, "epFlag": ep})))
 
 
 def iter_requests(aq, stop):
