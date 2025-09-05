@@ -272,3 +272,6 @@ LOGGING = {
         },
     },
 }
+
+# Realtime subtitles
+REALTIME_WS_URL = os.getenv('REALTIME_WS_URL', '')

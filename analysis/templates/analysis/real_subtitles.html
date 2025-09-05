@@ -1,0 +1,73 @@
+{% extends 'users/base.html' %}
+{% load static %}
+
+{% block title %}REAL-LIFE SUBTITLES{% endblock %}
+
+{% block content %}
+<div class="container py-3" id="root" data-ws-url="{{ ws_url }}">
+  <h1 class="h3 mb-3">Real-life subtitles</h1>
+  <div class="mb-2">
+    <button id="startBtn" class="btn btn-success">Start</button>
+    <button id="stopBtn" class="btn btn-secondary" disabled>Stop</button>
+    <span id="status" class="ms-2 text-muted"></span>
+  </div>
+  <div id="subs" style="border:1px solid #ddd; min-height:160px; padding:12px; white-space:pre-wrap"></div>
+  <pre id="log" class="mt-3" style="max-height:200px; overflow:auto"></pre>
+</div>
+
+<script>
+const statusEl = document.getElementById('status');
+const logEl = document.getElementById('log');
+const subsEl = document.getElementById('subs');
+const startBtn = document.getElementById('startBtn');
+const stopBtn = document.getElementById('stopBtn');
+const root = document.getElementById('root');
+let ws=null;
+
+function setStatus(t){ statusEl.textContent = t||'' }
+function log(t){ try{ logEl.textContent += (t+'\n') }catch(_){ } }
+function appendText(t){ if(!t) return; const s=document.createElement('span'); s.textContent=t; subsEl.appendChild(s); subsEl.appendChild(document.createTextNode(' ')) }
+function extractText(d){ try{ const o=JSON.parse(d); const x=(o&&o.transcription&&o.transcription.text)||o.text||''; return (typeof x==='string')?x:'' }catch(_){ return '' } }
+function onMessage(ev){ try{ const outer=JSON.parse(ev.data); if(outer&&outer.data){ const t=extractText(outer.data); if(t&&t.trim()) appendText(t.trim()) } }catch(_){ } }
+
+function getWsUrl(){
+  try {
+    const p = new URLSearchParams(location.search);
+    const q = p.get('ws');
+    if (q) return q;
+  } catch(_) {}
+  const a = (root && root.getAttribute('data-ws-url')) || '';
+  if (a) return a;
+  return (location.origin.replace('http','ws') + '/realtime/ws');
+}
+
+async function start(){
+  try{
+    ws = new WebSocket(getWsUrl());
+    ws.onopen = ()=> setStatus('Connected');
+    ws.onmessage = onMessage;
+    ws.onclose = ()=> setStatus('Disconnected');
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const ac = new (window.AudioContext||window.webkitAudioContext)({ sampleRate: 16000 });
+    const src = ac.createMediaStreamSource(stream);
+    const proc = ac.createScriptProcessor(4096, 1, 1);
+    src.connect(proc); proc.connect(ac.destination);
+    proc.onaudioprocess = (e)=>{
+      if(!ws || ws.readyState !== 1) return;
+      const input = e.inputBuffer.getChannelData(0);
+      const pcm16 = new Int16Array(input.length);
+      for(let i=0;i<input.length;i++){ let s=input[i]; if(s>1)s=1; if(s<-1)s=-1; pcm16[i] = s<0 ? s*0x8000 : s*0x7FFF }
+      try{ ws.send(new Blob([pcm16.buffer], { type:'application/octet-stream' })) }catch(_){ }
+    };
+    startBtn.disabled = true; stopBtn.disabled = false; setStatus('Recording…');
+  }catch(e){ setStatus('Mic denied'); }
+}
+
+function stop(){ try{ ws && ws.close() }catch(_){ } startBtn.disabled=false; stopBtn.disabled=true; }
+
+startBtn.addEventListener('click', start);
+stopBtn.addEventListener('click', stop);
+</script>
+{% endblock %}
+
+

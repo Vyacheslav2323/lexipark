@@ -1,4 +1,5 @@
 from django.shortcuts import render
+from django.conf import settings
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.decorators import login_required
@@ -25,6 +26,12 @@ def analyze_view(request):
         'analyzed_text': analyzed_text
     }
     return render(request, 'analysis/page1.html', context)
+
+def real_life_subtitles_view(request):
+    ws_url = getattr(settings, 'REALTIME_WS_URL', 'ws://localhost:8080/ws')
+    return render(request, 'analysis/real_subtitles.html', { 'ws_url': ws_url })
+
+ 
 
 @login_required
 @csrf_exempt

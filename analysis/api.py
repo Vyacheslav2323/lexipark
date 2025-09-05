@@ -10,6 +10,12 @@ from vocab.models import Vocabulary, GlobalTranslation
 from django.core.cache import cache
 import hashlib
 from analysis.core.interactive_rules import interactive as is_interactive
+import os
+import subprocess
+import tempfile
+import tempfile
+import base64
+import requests
 
 def _resolve_user(request):
 	user = getattr(request, 'user', None)
@@ -187,4 +193,160 @@ def finish_batch_api(request):
 		res = bulk_add_words({ 'user': request.user, 'words': to_add, 'meta': { 'pos':'', 'grammar_info':'', 'english_translation':'' }, 'metas': metas })
 		return JsonResponse({ 'success': True, 'attempted_count': len(unique), 'added_count': len(res['added']), 'skipped_existing': len(existing), 'words_added': res['added'] })
 	except Exception as e:
+		return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+def _parse_text_json(s):
+	try:
+		obj = json.loads(s)
+		if isinstance(obj, dict):
+			if 'result' in obj and isinstance(obj['result'], dict):
+				return obj['result'].get('text') or obj['result'].get('msg') or s
+			return obj.get('text') or obj.get('msg') or obj.get('message') or s
+		return s
+	except Exception:
+		return s
+
+def _convert_to_pcm(d):
+	try:
+		raw = d.get('raw') or b''
+		src = (d.get('src_mime') or '').lower()
+		if len(raw) < 2000:
+			return { 'ok': False, 'error': 'audio too short' }
+		ff = os.getenv('FFMPEG_BIN', 'ffmpeg')
+		cmd = [ff, '-y', '-i', 'pipe:0', '-ac', '1', '-ar', '16000', '-f', 's16le', '-acodec', 'pcm_s16le', 'pipe:1']
+		p = subprocess.run(cmd, input=raw, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False)
+		if p.returncode != 0:
+			return { 'ok': False, 'error': 'ffmpeg convert failed' }
+		pcm = p.stdout or b''
+		if len(pcm) < 2000:
+			return { 'ok': False, 'error': 'audio too short after convert' }
+		return { 'ok': True, 'pcm': pcm }
+	except Exception as e:
+		return { 'ok': False, 'error': str(e) }
+
+def _grpc_transcribe(d):
+	try:
+		pcm = d.get('pcm') or b''
+		import grpc
+		import nest_pb2 as pb
+		import nest_pb2_grpc as pbg
+		key = (os.getenv('CLOVASPEECH_API_KEY') or '').strip()
+		if not key:
+			return { 'ok': False, 'error': 'missing api key' }
+		hp = os.getenv('CLOVA_GRPC', 'clovaspeech-gw.ncloud.com:50051')
+		cfg = json.dumps({ 'language': os.getenv('CLOVA_LANG','ko-KR'), 'sampleRate': 16000, 'encoding': 'LINEAR16', 'interimResults': True })
+		def _iter():
+			yield pb.NestRequest(type=pb.CONFIG, config=pb.NestConfig(config=cfg))
+			yield pb.NestRequest(type=pb.DATA, data=pb.NestData(chunk=pcm))
+		creds = grpc.ssl_channel_credentials()
+		stub = pbg.NestServiceStub(grpc.secure_channel(hp, creds))
+		meta = (('x-clovaspeech-api-key', key),)
+		text = ''
+		last = ''
+		for r in stub.recognize(_iter(), metadata=meta):
+			m = _parse_text_json(r.contents)
+			if isinstance(m, str) and m.strip():
+				last = m
+			if any(k in r.contents for k in ['"isFinal":true','"is_final":true']):
+				text = m
+		if (text or last):
+			return { 'ok': True, 'text': (text or last) }
+		return { 'ok': False, 'error': 'no speech' }
+	except Exception as e:
+		return { 'ok': False, 'error': str(e) }
+
+@csrf_exempt
+@login_required
+def transcribe_api(request):
+	if request.method != 'POST':
+		return JsonResponse({'success': False, 'error': 'POST required'}, status=405)
+	try:
+		audio = request.FILES.get('audio')
+		if not audio:
+			return JsonResponse({'success': False, 'error': 'Missing audio'}, status=400)
+
+		raw = audio.read()
+		src_mime = (audio.content_type or '').lower()
+		try:
+			print(f"transcribe_api: content_type={src_mime} size={len(raw)} name={getattr(audio,'name','')}")
+		except Exception:
+			pass
+		if len(raw) < 2000:
+			return JsonResponse({'success': False, 'error': 'audio too short; send >= 0.5s'}, status=400)
+
+
+		url = (os.getenv('CLOVA_SPEECH_INVOKE_URL') or '').strip()
+		api_key = (os.getenv('CLOVASPEECH_API_KEY') or '').strip()
+		if not url or not api_key:
+			return JsonResponse({'success': False, 'error': 'Set CLOVA_SPEECH_INVOKE_URL and CLOVASPEECH_API_KEY'}, status=400)
+
+		if any(t in src_mime for t in ['mp4','m4a','aac','webm','ogg','mp3']):
+			ff = os.getenv('FFMPEG_BIN', 'ffmpeg')
+			with tempfile.NamedTemporaryFile(suffix='.wav', delete=True) as out_f:
+				cmd = [ff, '-y', '-i', 'pipe:0', '-ac', '1', '-ar', '16000', '-acodec', 'pcm_s16le', out_f.name]
+				p = subprocess.run(cmd, input=raw, stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=False)
+				if p.returncode != 0:
+					err = (p.stderr or b'')[:800].decode('utf-8', 'ignore')
+					return JsonResponse({'success': False, 'error': 'ffmpeg convert failed', 'stderr': err}, status=400)
+				out_f.seek(0)
+				raw = out_f.read()
+				if len(raw) < 2000:
+					return JsonResponse({'success': False, 'error': 'audio too short after convert; send >= 0.5s'}, status=400)
+
+		payload = {
+			'language': 'ko-KR',
+			'completion': 'sync',
+			'transcription': 'srt',
+			'audio': {
+				'format': 'wav',
+				'sampleRate': 16000,
+				'channels': 1,
+				'data': base64.b64encode(raw).decode('ascii')
+			}
+		}
+		headers = {
+			'X-CLOVASPEECH-API-KEY': api_key,
+			'Content-Type': 'application/json',
+			'Accept': 'application/json'
+		}
+		r = requests.post(url, headers=headers, data=json.dumps(payload), timeout=90)
+		if r.status_code != 200:
+			return JsonResponse({'success': False, 'error': f'CLOVA HTTP {r.status_code}', 'body': r.text[:800]}, status=502)
+		data = r.json()
+		def _strip_srt(s):
+			try:
+				lines = []
+				for ln in (s.split('\n')):
+					l = ln.strip()
+					if not l or l.isdigit() or ('-->' in l):
+						continue
+					lines.append(l)
+				return ' '.join(lines)
+			except Exception:
+				return s
+		def _extract_text(obj):
+			if isinstance(obj, str):
+				return _strip_srt(obj) if ('-->' in obj or '\n' in obj) else obj
+			if isinstance(obj, dict):
+				out = []
+				for v in obj.values():
+					t = _extract_text(v)
+					if t:
+						out.append(t)
+				return ' '.join([t for t in out if isinstance(t, str)])
+			if isinstance(obj, list):
+				out = []
+				for v in obj:
+					t = _extract_text(v)
+					if t:
+						out.append(t)
+				return ' '.join([t for t in out if isinstance(t, str)])
+			return ''
+		text = data.get('text') or data.get('result') or ''
+		if not text:
+			text = _extract_text(data)
+		text = (text or '').strip()
+		return JsonResponse({'success': True, 'text': (text or '').strip()})
+	except Exception as e:
+		print(f"transcribe_api: exception: {e}")
 		return JsonResponse({'success': False, 'error': str(e)}, status=500)
