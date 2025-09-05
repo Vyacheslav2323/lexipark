@@ -146,13 +146,36 @@ def health():
 
 @app.get("/diag")
 def diag():
+    import sys, importlib, pkgutil, pathlib, traceback
+    out = {"ok": True}
     try:
-        u = os.getenv("CLOVA_SPEECH_GRPC_URL", "")
-        s = os.getenv("CLOVA_SPEECH_CLIENT_SECRET", "")
-        lang = os.getenv("CLOVA_SPEECH_LANGUAGE", "")
-        return {"ok": True, "has_stub": make_stub() is not None, "has_token": bool(s), "lang": lang, "url_set": bool(u)}
-    except Exception:
-        return {"ok": False}
+        import grpc  # type: ignore
+        out["has_grpc"] = True
+        out["grpc_version"] = getattr(grpc, "__version__", "unknown")
+    except Exception as e:
+        out["has_grpc"] = False
+        out["grpc_error"] = repr(e)
+    try:
+        repo_root = pathlib.Path(__file__).resolve().parents[1]
+        stub_dir = repo_root / "clova_speech_experiments"
+        out["stub_dir_exists"] = stub_dir.exists()
+        out["stub_dir"] = str(stub_dir)
+        if stub_dir.exists():
+            out["stub_dir_ls"] = sorted(p.name for p in stub_dir.iterdir() if p.is_file())
+        mod = importlib.import_module("clova_speech_experiments.nest_pb2")
+        importlib.import_module("clova_speech_experiments.nest_pb2_grpc")
+        out["has_stub"] = True
+        out["stub_file"] = getattr(mod, "__file__", None)
+    except Exception as e:
+        out["has_stub"] = False
+        out["stub_error"] = "".join(traceback.format_exception_only(type(e), e)).strip()
+    out["cwd"] = os.getcwd()
+    out["sys_path_head"] = sys.path[:6]
+    out["packages_seen"] = [m.name for m in pkgutil.iter_modules() if m.name.startswith("clova")]
+    out["has_token"] = bool(os.getenv("CLOVA_SPEECH_CLIENT_SECRET", ""))
+    out["url_set"] = bool(os.getenv("CLOVA_SPEECH_GRPC_URL", ""))
+    out["lang"] = os.getenv("CLOVA_SPEECH_LANGUAGE", "")
+    return out
 
 
 def main():
