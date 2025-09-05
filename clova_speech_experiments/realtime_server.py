@@ -59,8 +59,13 @@ def run_grpc(aq, rq, stop):
     try:
         stub = make_stub()
         md = make_md()
-        if not stub or not md[0][1].split()[-1]:
+        has_token = bool(md and md[0][1].split()[-1])
+        if not stub or not has_token:
             log_error("realtime missing cfg")
+            try:
+                rq.put_nowait(json.dumps({"type":"error","message":"missing cfg: stub or token"}))
+            except Exception:
+                pass
             stop.set()
             return False
         m = getattr(stub, "Recognize", None) or getattr(stub, "recognize", None)
@@ -73,6 +78,10 @@ def run_grpc(aq, rq, stop):
         return True
     except Exception as e:
         log_error(f"realtime grpc err {e}")
+        try:
+            rq.put_nowait(json.dumps({"type":"error","message":str(e)}))
+        except Exception:
+            pass
         stop.set()
         return False
 
@@ -116,6 +125,16 @@ async def ws(ws: WebSocket):
 @app.get("/health")
 def health():
     return {"ok": True}
+
+@app.get("/diag")
+def diag():
+    try:
+        u = os.getenv("CLOVA_SPEECH_GRPC_URL", "")
+        s = os.getenv("CLOVA_SPEECH_CLIENT_SECRET", "")
+        lang = os.getenv("CLOVA_SPEECH_LANGUAGE", "")
+        return {"ok": True, "has_stub": make_stub() is not None, "has_token": bool(s), "lang": lang, "url_set": bool(u)}
+    except Exception:
+        return {"ok": False}
 
 
 def main():
