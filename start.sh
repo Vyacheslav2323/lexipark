@@ -30,12 +30,11 @@ python manage.py migrate
 echo "Collecting static files..."
 python manage.py collectstatic --noinput
 
-# Start the application with optimized settings
-echo "Starting application..."
-exec gunicorn jorp.wsgi:application \
-    --bind 0.0.0.0:$PORT \
-    --workers 1 \
-    --timeout 300 \
-    --max-requests 1000 \
-    --max-requests-jitter 100 \
-    --preload
+# Start the application (ASGI) with uvicorn so /realtime/* WebSockets work
+echo "Starting application (uvicorn ASGI)..."
+exec uvicorn jorp.asgi:application \
+    --host 0.0.0.0 \
+    --port ${PORT:-8000} \
+    --proxy-headers \
+    --forwarded-allow-ips "*" \
+    --log-level info
