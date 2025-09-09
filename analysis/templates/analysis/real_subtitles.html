@@ -3,6 +3,10 @@
 
 {% block title %}REAL-LIFE SUBTITLES{% endblock %}
 
+{% block extra_css %}
+<link href="{% static 'analysis/css/interactive.css' %}" rel="stylesheet">
+{% endblock %}
+
 {% block content %}
 <div class="container py-3" id="root" data-ws-url="{{ ws_url }}">
   <h1 class="h3 mb-3">Real-life subtitles</h1>
@@ -28,7 +32,26 @@ function setStatus(t){ statusEl.textContent = t||'' }
 function log(t){ try{ logEl.textContent += (t+'\n') }catch(_){ } }
 function appendText(t){ if(!t) return; const s=document.createElement('span'); s.textContent=t; subsEl.appendChild(s); subsEl.appendChild(document.createTextNode(' ')) }
 function extractText(d){ try{ const o=JSON.parse(d); const x=(o&&o.transcription&&o.transcription.text)||o.text||''; return (typeof x==='string')?x:'' }catch(_){ return '' } }
-function onMessage(ev){ try{ const outer=JSON.parse(ev.data); if(outer&&outer.data){ const t=extractText(outer.data); if(t&&t.trim()) appendText(t.trim()) } }catch(_){ } }
+function appendInteractive(t){
+  if(!t) return;
+  fetch('/analysis/api/analyze-sentence', { method:'POST', headers:{ 'Content-Type':'application/json', 'X-Requested-With':'XMLHttpRequest' }, body: JSON.stringify({ sentence: t }) })
+    .then(r=>r.json())
+    .then(d=>{
+      if(!(d&&d.success&&d.html)){ appendText(t); return; }
+      const span=document.createElement('span');
+      span.innerHTML=d.html;
+      subsEl.appendChild(span);
+      span.querySelectorAll('.interactive-word').forEach(w=>{ if(window.bindWordElementEvents) window.bindWordElementEvents(w); });
+      if(window.setupSentenceEvents) window.setupSentenceEvents();
+      if(window.queueSequentialTranslations){
+        const originals=Array.from(new Set(Array.from(span.querySelectorAll('.interactive-word[data-original]')).map(w=>w.getAttribute('data-original'))));
+        if(originals.length) window.queueSequentialTranslations(originals);
+      }
+      subsEl.appendChild(document.createTextNode(' '));
+    })
+    .catch(()=>{ appendText(t); });
+}
+function onMessage(ev){ try{ const outer=JSON.parse(ev.data); if(outer&&outer.data){ const t=extractText(outer.data); if(t&&t.trim()) appendInteractive(t.trim()) } }catch(_){ } }
 
 function getWsUrl(){
   try {
@@ -68,6 +91,9 @@ function stop(){ try{ ws && ws.close() }catch(_){ } startBtn.disabled=false; sto
 startBtn.addEventListener('click', start);
 stopBtn.addEventListener('click', stop);
 </script>
+{% block extra_js %}
+<script type="module" src="{% static 'analysis/js/interactive/index.js' %}"></script>
+{% endblock %}
 {% endblock %}
 
 

@@ -34,7 +34,7 @@ class GlobalTranslationAdmin(admin.ModelAdmin):
 
 @admin.register(Vocabulary)
 class VocabularyAdmin(admin.ModelAdmin):
-    list_display = ('user', 'korean_word', 'pos_display', 'english_translation', 'hover_count', 'average_duration', 'last_5_durations_display', 'created_at', 'last_reviewed', 'retention_rate')
+    list_display = ('user', 'korean_word', 'pos_display', 'english_translation', 'in_vocab', 'encounter_count', 'hover_count', 'average_duration', 'last_5_durations_display', 'created_at', 'last_reviewed', 'retention_rate')
     list_filter = ('user', 'pos', 'created_at')
     search_fields = ('korean_word', 'english_translation', 'user__username')
     ordering = ('-created_at',)
@@ -60,5 +60,6 @@ class VocabularyAdmin(admin.ModelAdmin):
     def retention_column(self, obj):
         return obj.get_retention_rate()
     retention_column.short_description = 'Retention'
+
 
 

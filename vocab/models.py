@@ -27,9 +27,11 @@ class Vocabulary(models.Model):
     pos = models.CharField(max_length=20, default='')
     grammar_info = models.TextField(blank=True)
     english_translation = models.CharField(max_length=200)
+    in_vocab = models.BooleanField(default=False)
     hover_count = models.IntegerField(default=0)
     total_hover_time = models.FloatField(default=0.0)
     last_5_durations = models.TextField(default='[]')
+    encounter_count = models.IntegerField(default=0)
     created_at = models.DateTimeField(auto_now_add=True)
     last_reviewed = models.DateTimeField(auto_now=True)
     grammars = models.ManyToManyField(Grammar, blank=True, related_name='vocabularies')
@@ -121,4 +123,7 @@ class Vocabulary(models.Model):
     def __str__(self):
         return f"{self.user.username}: {self.korean_word} ({self.pos}) -> {self.english_translation}"
 
+
+
+# WordEncounter model removed; counts are tracked on Vocabulary.encounter_count
 

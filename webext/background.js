@@ -145,6 +145,21 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 
 chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   ;(async () => {
+    if (msg.type === 'track-hover') {
+      try {
+        const res = await apiFetchWithFallback(['/analysis/track-hover/'], { method: 'POST', body: JSON.stringify({ korean_word: msg.word || '', duration: msg.duration || 0 }) })
+        const data = await res.json().catch(()=>({}))
+        sendResponse({ ok: res.ok, data })
+      } catch (e) {
+        sendResponse({ ok:false, error:String(e) })
+      }
+    }
+  })()
+  return true
+})
+
+chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  ;(async () => {
     if (msg.type === 'save-vocab') {
       try {
         let base = await getApiBase()

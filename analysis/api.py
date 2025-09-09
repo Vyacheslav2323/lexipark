@@ -3,7 +3,7 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.decorators import login_required
 from analysis.core.pipeline import analyze as pipeline_analyze, finish as pipeline_finish
-from analysis.core.vocab_service import batch_update_recalls, bulk_add_words
+from analysis.core.vocab_service import batch_update_recalls, bulk_add_words, increment_word_encounters
 from analysis.core.translate_service import translate_word as svc_translate_word, translate_sentence as svc_translate_sentence
 from analysis.mecab_utils import analyze_sentence as mecab_analyze_sentence, create_interactive_sentence
 from vocab.models import Vocabulary, GlobalTranslation
@@ -55,6 +55,19 @@ def analyze_api(request):
 		if not res:
 			res = pipeline_analyze({ 'user': user, 'text': text })
 			cache.set(key, res, 60)
+		# increment encounters for webext usage too
+		try:
+			if user and getattr(user, 'is_authenticated', False):
+				from analysis.core.mecab import analyze as mecab_analyze
+				results = mecab_analyze(text)
+				items = []
+				for (_, b, pos, _) in results:
+					if b:
+						items.append((b, pos or ''))
+				if items:
+					increment_word_encounters({ 'user': user, 'items': items })
+		except Exception:
+			pass
 		return JsonResponse({ 'success': True, **res })
 	except Exception as e:
 		return JsonResponse({'success': False, 'error': str(e)}, status=500)
@@ -130,6 +143,16 @@ def analyze_sentence_api(request):
 				vocab_words = set(qs.values_list('korean_word', flat=True))
 				vocab_map = {v.korean_word: v.english_translation for v in qs}
 			results = mecab_analyze_sentence(sentence)
+			try:
+				if request.user and request.user.is_authenticated:
+					items = []
+					for (surface, base, pos, _) in results:
+						if base:
+							items.append((base, pos or ''))
+					if items:
+						increment_word_encounters({ 'user': request.user, 'items': items })
+			except Exception:
+				pass
 			translations = []
 			for _, base, _, _ in results:
 				translations.append(vocab_map.get(base, '') if base else None)

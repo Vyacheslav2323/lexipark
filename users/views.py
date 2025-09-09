@@ -121,6 +121,7 @@ def save_vocabulary_view(request):
                     'pos': pos,
                     'grammar_info': grammar_info or '',
                     'english_translation': translation,
+                    'in_vocab': True,
                     'alpha_prior': 1.0,
                     'beta_prior': 9.0,
                     'retention_rate': 0.1
@@ -131,9 +132,11 @@ def save_vocabulary_view(request):
                 vocab.pos = pos
                 vocab.grammar_info = grammar_info or ''
                 vocab.english_translation = translation
+                vocab.in_vocab = True
                 vocab.save()
             else:
                 vocab = update_vocabulary_recall(vocab, had_lookup=True)
+                vocab.in_vocab = True
                 vocab.save()
             
             return JsonResponse({
@@ -174,6 +177,7 @@ def api_save_vocabulary(request):
                 'pos': pos,
                 'grammar_info': grammar_info,
                 'english_translation': translation,
+                'in_vocab': True,
                 'alpha_prior': 1.0,
                 'beta_prior': 9.0,
                 'retention_rate': 0.1
@@ -185,9 +189,11 @@ def api_save_vocabulary(request):
             vocab.grammar_info = grammar_info
             if translation:
                 vocab.english_translation = translation
+            vocab.in_vocab = True
             vocab.save()
         else:
             vocab = update_vocabulary_recall(vocab, had_lookup=True)
+            vocab.in_vocab = True
             vocab.save()
         return JsonResponse({'success': True, 'created': created, 'retention_rate': vocab.retention_rate})
     except Exception as e:

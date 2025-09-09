@@ -65,3 +65,33 @@ def bulk_add_words(payload):
 	if to_create:
 		Vocabulary.objects.bulk_create(to_create, ignore_conflicts=True)
 	return { 'added': [v.korean_word for v in to_create] }
+
+
+def increment_word_encounters(payload):
+	user = payload['user']
+	items = list(payload.get('items') or [])
+	if not items:
+		return { 'updated': 0 }
+	updated = 0
+	for token, pos in items:
+		if not token:
+			continue
+		v = Vocabulary.objects.filter(user=user, korean_word=token).first()
+		if not v:
+			v = Vocabulary.objects.create(
+				user=user,
+				korean_word=token,
+				pos=pos or '',
+				grammar_info='',
+				english_translation=token,
+				in_vocab=False,
+				alpha_prior=10,
+				beta_prior=0,
+				retention_rate=1.0
+			)
+		v.encounter_count = (v.encounter_count or 0) + 1
+		if not v.pos:
+			v.pos = pos or ''
+		v.save(update_fields=['encounter_count','pos'])
+		updated += 1
+	return { 'updated': updated }

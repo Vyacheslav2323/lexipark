@@ -322,6 +322,7 @@
       const isKnown = el.classList.contains('in-vocab') || (el.style.backgroundColor && el.style.backgroundColor !== 'transparent')
       if (isKnown && duration >= HOVER_THRESHOLD_MS) {
         queueRecallInteraction(word, true)
+        try { chrome.runtime.sendMessage({ type:'track-hover', word, duration }) } catch(_) {}
       }
     })
     hoverBound = true
