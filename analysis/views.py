@@ -27,6 +27,8 @@ def analyze_view(request):
     }
     return render(request, 'analysis/page1.html', context)
 
+@login_required
+@subscription_required
 def real_life_subtitles_view(request):
     ws_url = getattr(settings, 'REALTIME_WS_URL', 'ws://localhost:8080/ws')
     return render(request, 'analysis/real_subtitles.html', { 'ws_url': ws_url })

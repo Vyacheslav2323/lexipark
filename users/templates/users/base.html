@@ -19,28 +19,24 @@
     <nav class="navbar navbar-expand-md navbar-dark shadow-sm">
         <div class="container">
             <a class="navbar-brand fw-bold d-flex align-items-center" href="{% url 'home' %}">
-                <img src="{% static 'icons/favicon-32.png' %}" alt="LexiPark" width="24" height="24" class="me-2"> LexiPark
+                <img src="{% static 'icons/favicon-32.png' %}" alt="" width="24" height="24" class="me-2"> LexiPark
             </a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav" aria-controls="mainNav" aria-expanded="false" aria-label="Toggle navigation">
                 <span class="navbar-toggler-icon"></span>
             </button>
             <div class="collapse navbar-collapse" id="mainNav">
                 <div class="navbar-nav ms-auto">
-                    <a class="nav-link" href="{% url 'analysis:analyze' %}">
-                        <i class="fas fa-language me-1"></i>Text Analysis
-                    </a>
-                    <a class="nav-link" href="{% url 'analysis:image_analysis' %}">
-                        <i class="fas fa-image me-1"></i>Image Analysis
-                    </a>
+                    
                     <a class="nav-link" href="{% url 'analysis:real_subtitles' %}">
                         <i class="fas fa-closed-captioning me-1"></i>REAL-LIFE SUBTITLES
                     </a>
+                    <a class="nav-link" href="{% url 'analysis:image_analysis' %}">
+                        <i class="fas fa-image me-1"></i>TEXTBOOK ASSISTANT
+                    </a>
                     <a class="nav-link" href="{% url 'users:profile' %}">
-                        <i class="fas fa-book me-1"></i>My Vocabulary
+                        <i class="fas fa-book me-1"></i>MY VOCAB
                     </a>
-                    <a class="nav-link" href="{% url 'vocab:vocabulary_test' %}">
-                        <i class="fas fa-question-circle me-1"></i>Vocabulary Test
-                    </a>
+                    
                     {% if user.is_authenticated %}
                         <a class="nav-link me-3" href="{% url 'users:stats' %}">
                             <i class="fas fa-user me-1"></i>Welcome, {{ user.username }}!

@@ -2,6 +2,7 @@ import json
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.contrib.auth.decorators import login_required
+from billing.decorators import subscription_required
 from analysis.core.pipeline import analyze as pipeline_analyze, finish as pipeline_finish
 from analysis.core.vocab_service import batch_update_recalls, bulk_add_words, increment_word_encounters
 from analysis.core.translate_service import translate_word as svc_translate_word, translate_sentence as svc_translate_sentence
@@ -73,6 +74,7 @@ def analyze_api(request):
 		return JsonResponse({'success': False, 'error': str(e)}, status=500)
 
 @login_required
+@subscription_required
 @csrf_exempt
 def finish_api(request):
 	if request.method != 'POST':
@@ -87,6 +89,7 @@ def finish_api(request):
 		return JsonResponse({'success': False, 'error': str(e)}, status=500)
 
 @login_required
+@subscription_required
 @csrf_exempt
 def batch_recall_api(request):
 	if request.method != 'POST':
@@ -163,6 +166,7 @@ def analyze_sentence_api(request):
 		return JsonResponse({'success': False, 'error': str(e)}, status=500)
 
 @login_required
+@subscription_required
 @csrf_exempt
 def finish_sentence_api(request):
 	if request.method != 'POST':
@@ -178,6 +182,7 @@ def finish_sentence_api(request):
 		return JsonResponse({'success': False, 'error': str(e)}, status=500)
 
 @login_required
+@subscription_required
 @csrf_exempt
 def finish_batch_api(request):
 	if request.method != 'POST':
@@ -280,6 +285,7 @@ def _grpc_transcribe(d):
 
 @csrf_exempt
 @login_required
+@subscription_required
 def transcribe_api(request):
 	if request.method != 'POST':
 		return JsonResponse({'success': False, 'error': 'POST required'}, status=405)

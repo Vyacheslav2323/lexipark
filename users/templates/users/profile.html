@@ -30,19 +30,36 @@
                         <table class="table table-hover">
                             <thead class="table-light">
                                 <tr>
-                                    <th scope="col">
-                                        <i class="fas fa-language me-1"></i>Korean Word
+                                    <th scope="col" data-sort="korean_word">
+                                        <a class="text-reset text-decoration-none" href="?sort=korean_word&dir={% if sort == 'korean_word' %}{% if dir == 'asc' %}desc{% else %}asc{% endif %}{% else %}asc{% endif %}">
+                                            <i class="fas fa-language me-1"></i>Korean Word
+                                            {% if sort == 'korean_word' %}<span class="ms-1">{% if dir == 'asc' %}&uarr;{% else %}&darr;{% endif %}</span>{% endif %}
+                                        </a>
                                     </th>
-                                    <th scope="col">
-                                        <i class="fas fa-translate me-1"></i>English Translation
+                                    <th scope="col" data-sort="english">
+                                        <a class="text-reset text-decoration-none" href="?sort=english&dir={% if sort == 'english' %}{% if dir == 'asc' %}desc{% else %}asc{% endif %}{% else %}asc{% endif %}">
+                                            <i class="fas fa-translate me-1"></i>English Translation
+                                            {% if sort == 'english' %}<span class="ms-1">{% if dir == 'asc' %}&uarr;{% else %}&darr;{% endif %}</span>{% endif %}
+                                        </a>
                                     </th>
-                                    <th scope="col">
-                                        <i class="fas fa-calendar me-1"></i>Added
+                                    <th scope="col" style="width:220px" data-sort="retention">
+                                        <a class="text-reset text-decoration-none" href="?sort=retention&dir={% if sort == 'retention' %}{% if dir == 'asc' %}desc{% else %}asc{% endif %}{% else %}asc{% endif %}">
+                                            <i class="fas fa-heartbeat me-1"></i>Retention
+                                            {% if sort == 'retention' %}<span class="ms-1">{% if dir == 'asc' %}&uarr;{% else %}&darr;{% endif %}</span>{% endif %}
+                                        </a>
                                     </th>
-                                    <th scope="col">
-                                        <i class="fas fa-clock me-1"></i>Last Reviewed
+                                    <th scope="col" data-sort="added">
+                                        <a class="text-reset text-decoration-none" href="?sort=added&dir={% if sort == 'added' %}{% if dir == 'asc' %}desc{% else %}asc{% endif %}{% else %}asc{% endif %}">
+                                            <i class="fas fa-calendar me-1"></i>Added
+                                            {% if sort == 'added' %}<span class="ms-1">{% if dir == 'asc' %}&uarr;{% else %}&darr;{% endif %}</span>{% endif %}
+                                        </a>
                                     </th>
-                                    
+                                    <th scope="col" data-sort="reviewed">
+                                        <a class="text-reset text-decoration-none" href="?sort=reviewed&dir={% if sort == 'reviewed' %}{% if dir == 'asc' %}desc{% else %}asc{% endif %}{% else %}desc{% endif %}">
+                                            <i class="fas fa-clock me-1"></i>Last Reviewed
+                                            {% if sort == 'reviewed' %}<span class="ms-1">{% if dir == 'asc' %}&uarr;{% else %}&darr;{% endif %}</span>{% endif %}
+                                        </a>
+                                    </th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -53,6 +70,13 @@
                                     </td>
                                     
                                     <td>{{ vocab.english_translation }}</td>
+                                    <td>
+                                        <div class="progress" style="height: 10px;">
+                                            {% with pct=vocab.health|default:0 %}
+                                            <div class="progress-bar {% if pct >= 75 %}bg-success{% elif pct >= 40 %}bg-warning{% else %}bg-danger{% endif %}" role="progressbar" style="width: {{ pct|floatformat:0 }}%;" aria-valuenow="{{ pct|floatformat:0 }}" aria-valuemin="0" aria-valuemax="100"></div>
+                                            {% endwith %}
+                                        </div>
+                                    </td>
                                     <td>
                                         <small class="text-muted">
                                             {{ vocab.created_at|date:"M d, Y" }}

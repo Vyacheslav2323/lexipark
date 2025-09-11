@@ -37,6 +37,16 @@
                     </div>
                     
                     <div class="mb-3">
+                        <label for="id_name" class="form-label">
+                            <i class="fas fa-id-card me-1"></i>Name
+                        </label>
+                        {{ form.name|addclass:"form-control" }}
+                        {% if form.name.errors %}
+                            <div class="text-danger small">{{ form.name.errors.0 }}</div>
+                        {% endif %}
+                    </div>
+
+                    <div class="mb-3">
                         <label for="id_email" class="form-label">
                             <i class="fas fa-envelope me-1"></i>Email
                         </label>
@@ -49,6 +59,16 @@
                         {% endif %}
                     </div>
                     
+                    <div class="mb-3">
+                        <label for="id_country" class="form-label">
+                            <i class="fas fa-globe me-1"></i>Country
+                        </label>
+                        {{ form.country|addclass:"form-control" }}
+                        {% if form.country.errors %}
+                            <div class="text-danger small">{{ form.country.errors.0 }}</div>
+                        {% endif %}
+                    </div>
+
                     <div class="mb-3">
                         <label for="id_password1" class="form-label">
                             <i class="fas fa-lock me-1"></i>Password

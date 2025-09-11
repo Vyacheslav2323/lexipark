@@ -1,104 +1,54 @@
 {% extends 'users/base.html' %}
 {% load static %}
-{% block title %}Lexipark — AI-Powered Korean Learning App for Foreigners in Korea{% endblock %}
-{% block extra_css %}
-<meta name="description" content="Learn practical Korean vocabulary with Lexipark. AI-powered app for workers, students, and expats in Korea. Try free today!">
-<link href="{% static 'analysis/css/interactive.css' %}" rel="stylesheet">
-<link href="{% static 'analysis/css/image_analysis.css' %}" rel="stylesheet">
-{% endblock %}
+{% block title %}Turn Real Life Into Subtitles — Instantly | Lexipark{% endblock %}
 {% block content %}
+
 <section class="py-5">
   <div class="row align-items-center">
-    <div class="col-lg-6 mb-4 mb-lg-0">
-      <h1 class="display-5 fw-bold">Learn Korean the smart way</h1>
-      <p class="lead mt-3">Lexipark helps you learn Korean by consuming media you actually like!</p>
+    <div class="col-lg-7 mb-4 mb-lg-0">
+      <h1 class="display-5 fw-bold">Turn Real Life Into Subtitles — Instantly.</h1>
+      <h2 class="h4 text-muted mt-3">From classrooms to movies to meetings — understand every word with color-coded subtitles powered by AI.</h2>
       <div class="d-grid gap-3 d-sm-flex mt-4">
-        <a href="https://chromewebstore.google.com/detail/maeildagjgjbdmaacniimlofondojfmc?utm_source=item-share-cb" class="btn btn-primary btn-lg w-100 w-sm-auto">Chrome Extension</a>
-        <a href="https://apps.apple.com/kr/app/lexipark/id6751497493?l=en-GB" class="btn btn-dark btn-lg w-100 w-sm-auto">iOS App</a>
-      </div>
-      <div class="mt-4">
-        <ol class="list-unstyled">
-          <li class="mb-2">1️⃣ Hover over an unknown word to see its translation.</li>
-          <li class="mb-2">2️⃣ Click the word to add it to your vocabulary list.</li>
-          <li class="mb-2">3️⃣ Click the translation to see more examples.</li>
-        </ol>
+        <a href="{% url 'users:register' %}" class="btn btn-success btn-lg">Start Free →</a>
+        <a href="#how-it-works" class="btn btn-outline-secondary btn-lg">See How It Works</a>
       </div>
     </div>
-    <div class="col-lg-6">
-      <div class="card shadow-sm">
-        <div class="card-body text-center">
-          <div style="position:relative; display:inline-block; max-width:100%;">
-            <img id="promo-img" src="{% static 'icons/promo.jpg' %}" alt="Lexipark app preview" style="max-width:100%; height:auto; display:block;">
-            <div id="promo-overlays" style="position:absolute; left:0; top:0; right:0; bottom:0; pointer-events:auto;"></div>
-          </div>
-        </div>
+    <div class="col-lg-5">
+      <div class="d-flex flex-column gap-3">
+        <img src="{% static 'icons/landing-1.png' %}" alt="Lexipark live subtitles preview 2" class="img-fluid rounded shadow-sm">
       </div>
     </div>
   </div>
 </section>
-{% block extra_js %}
-<script type="module" src="{% static 'analysis/js/interactive/index.js' %}"></script>
-<script src="{% static 'analysis/js/image_analysis.js' %}"></script>
-<script>
-(function(){
-  function renderLanding(){
-    var layer = document.getElementById('promo-overlays')
-    if (!layer) return
-    fetch("{% static 'icons/promo.mecab.json' %}", { credentials: 'same-origin' })
-      .then(function(r){ return r.json() })
-      .then(function(data){
-        var items = (data.token_boxes || data.ocr_data || []).slice(0, 200)
-        window.renderPrecomputedTokenBoxes({ layerId: 'promo-overlays', items: items })
-      }).catch(function(){})
-  }
-  if (document.readyState === 'complete' || document.readyState === 'interactive') setTimeout(renderLanding, 0)
-  else document.addEventListener('DOMContentLoaded', renderLanding)
-  window.addEventListener('resize', renderLanding)
-})()
-</script>
-{% endblock %}
 
-<section class="py-5 mt-5">
-  <h2 class="h3 mb-4 text-center">How to Learn Korean Effectively with Lexipark</h2>
+<section class="py-5">
+  <h2 class="h3 mb-4">Works Anywhere You Need It</h2>
   <div class="row g-3">
     <div class="col-md-4">
-      <div class="card h-100">
-        <div class="card-body text-center">
-          <div class="fw-bold mb-2">🔍 Analyze Any Text or Image</div>
-          <div>Upload or paste Korean — unknown words are instantly highlighted.</div>
-        </div>
-      </div>
+      <div class="card h-100"><div class="card-body">
+        <div class="fw-bold mb-2">🎓 In Class</div>
+        <div>Record your teacher. Save tricky words instantly.</div>
+      </div></div>
     </div>
     <div class="col-md-4">
-      <div class="card h-100">
-        <div class="card-body text-center">
-          <div class="fw-bold mb-2">📒 Track All Your Vocabulary</div>
-          <div>Every word you see is saved in your personal word bank.</div>
-        </div>
-      </div>
+      <div class="card h-100"><div class="card-body">
+        <div class="fw-bold mb-2">🎬 Movies</div>
+        <div>Enjoy your favorite shows with live subtitles and vocab tracking.</div>
+      </div></div>
     </div>
     <div class="col-md-4">
-      <div class="card h-100">
-        <div class="card-body text-center">
-          <div class="fw-bold mb-2">🎨 Retain with Color-Coding</div>
-          <div>🟢 Unknown • 💖 Learning • ⚪ Mastered</div>
-        </div>
-      </div>
+      <div class="card h-100"><div class="card-body">
+        <div class="fw-bold mb-2">💼 Work</div>
+        <div>Follow every meeting without missing important words.</div>
+      </div></div>
     </div>
   </div>
-  <div class="d-grid mt-4">
-    <a href="{% url 'users:register' %}" class="btn btn-success btn-lg mx-auto">Start Learning Now</a>
-  </div>
-  </section>
+</section>
 
-<section class="py-5 bg-light rounded">
-  <div class="text-center">
-    <h2 class="h3">Start learning Korean smarter — free to try today</h2>
-    <div class="d-grid gap-3 d-sm-inline-flex mt-3">
-      <a href="https://chromewebstore.google.com/detail/maeildagjgjbdmaacniimlofondojfmc?utm_source=item-share-cb" class="btn btn-primary btn-lg">Try Chrome Extension</a>
-      <a href="https://apps.apple.com/kr/app/lexipark/id6751497493?l=en-GB" class="btn btn-dark btn-lg">Get iOS App</a>
-    </div>
-  </div>
+<section class="py-5 text-center">
+  <h1 class="h2 mb-3">🚀 Join Free Today — Limited Beta</h1>
+  <p class="lead">Be one of the first to experience real-life subtitles. Sign up now and start learning effortlessly.</p>
+  <a href="{% url 'users:register' %}" class="btn btn-success btn-lg">Start Free →</a>
 </section>
 
 <section class="py-4">
@@ -117,5 +67,6 @@
       </div>
     </div>
   </div>
+  
 </section>
 {% endblock %}

@@ -8,6 +8,8 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 from vocab.models import Vocabulary
+from django.db.models import F, FloatField, ExpressionWrapper
+import logging
 from vocab.bayesian_recall import update_vocabulary_recall
 from .forms import CustomUserCreationForm
 from rest_framework.decorators import api_view, permission_classes
@@ -60,10 +62,28 @@ def register_view(request):
 @login_required
 @subscription_required
 def profile_view(request):
-    vocabularies = Vocabulary.objects.filter(user=request.user).order_by('-hover_count', '-total_hover_time', '-created_at')
+    sort = (request.GET.get('sort') or 'reviewed').lower()
+    direction = (request.GET.get('dir') or 'desc').lower()
+    field_map = {
+        'korean_word': 'korean_word',
+        'english': 'english_translation',
+        'retention': 'retention_rate',
+        'added': 'created_at',
+        'reviewed': 'last_reviewed',
+    }
+    field = field_map.get(sort, 'last_reviewed')
+    order = f"{'-' if direction == 'desc' else ''}{field}"
+    qs = Vocabulary.objects.filter(user=request.user).annotate(health=ExpressionWrapper(F('retention_rate') * 100.0, output_field=FloatField())).order_by(order)
+    vocabularies = qs
+    try:
+        logging.getLogger('users').info('profile.sort key=%s dir=%s', sort, direction)
+    except Exception:
+        pass
     context = {
         'vocabularies': vocabularies,
-        'total_words': vocabularies.count()
+        'total_words': vocabularies.count(),
+        'sort': sort,
+        'dir': direction,
     }
     return render(request, 'users/profile.html', context)
 
@@ -160,6 +180,7 @@ def save_vocabulary_view(request):
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
+@subscription_required
 def api_save_vocabulary(request):
     try:
         korean_word = (request.data.get('korean_word') or '').trim() if hasattr(str, 'trim') else (request.data.get('korean_word') or '').strip()
