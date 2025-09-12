@@ -4,6 +4,8 @@ from django.utils.html import format_html
 from django.urls import reverse
 from django.http import HttpResponseRedirect
 from django.contrib import messages
+from django.utils.crypto import get_random_string
+from logger import log_error, log_tried, log_working
 from .models import Subscription, PromoCode, PromoRedemption
 
 User = get_user_model()
@@ -119,7 +121,19 @@ class UserAdmin(admin.ModelAdmin):
     list_display = ['username', 'email', 'subscription_status', 'lifetime_free', 'trial_status']
     list_filter = ['subscription__lifetime_free', 'subscription__status']
     search_fields = ['username', 'email']
-    actions = ['grant_lifetime_free', 'revoke_lifetime_free', 'extend_trial']
+    actions = ['grant_lifetime_free', 'revoke_lifetime_free', 'extend_trial', 'reset_passwords']
+    actions_on_top = True
+    actions_on_bottom = True
+
+    def make_password(self, length):
+        return get_random_string(length)
+
+    def set_user_password(self, data):
+        u = data['user']
+        p = data['password']
+        u.set_password(p)
+        u.save(update_fields=['password'])
+        return f"{u.username}:{p}"
     
     def subscription_status(self, obj):
         sub = getattr(obj, 'subscription', None)
@@ -174,6 +188,21 @@ class UserAdmin(admin.ModelAdmin):
         updated = queryset.count()
         self.message_user(request, f'Extended trial for {updated} user(s) by 30 days.')
     extend_trial.short_description = "Extend trial by 30 days"
+
+    def reset_passwords(self, request, queryset):
+        results = []
+        for u in queryset:
+            try:
+                log_tried(f"admin:reset_password:{u.id}")
+                p = self.make_password(12)
+                msg = self.set_user_password({'user': u, 'password': p})
+                results.append(msg)
+                log_working(f"admin:reset_password_ok:{u.id}")
+            except Exception as e:
+                log_error(f"admin:reset_password_err:{u.id}:{str(e)}")
+        if results:
+            self.message_user(request, " ".join(results), level=messages.INFO)
+    reset_passwords.short_description = 'Set random password and show it'
 
 
 admin.site.unregister(User)

@@ -1,4 +1,24 @@
-from vocab.models import Vocabulary
+from vocab.models import Vocabulary, GlobalTranslation
+from analysis.core.translate_service import translate_word
+from logger import log_error, log_tried, log_working
+
+def get_translation(word):
+	translation = ''
+	try:
+		log_tried(f"encounter:get_translation:{word}")
+		gt = GlobalTranslation.objects.filter(korean_word=word).first()
+		if gt and gt.english_translation:
+			gt.usage_count += 1
+			gt.save(update_fields=['usage_count'])
+			log_working(f"encounter:global_translation:{word}:{gt.english_translation}")
+			return gt.english_translation
+		translation = translate_word(word) or ''
+		if translation:
+			log_working(f"encounter:translated:{word}:{translation}")
+		return translation or word
+	except Exception as e:
+		log_error(f"encounter:translate_error:{word}:{str(e)}")
+		return word
 
 def get_user_vocab(user):
 	qs = Vocabulary.objects.filter(user=user)
@@ -83,7 +103,7 @@ def increment_word_encounters(payload):
 				korean_word=token,
 				pos=pos or '',
 				grammar_info='',
-				english_translation=token,
+				english_translation=get_translation(token),
 				in_vocab=False,
 				alpha_prior=10,
 				beta_prior=0,
