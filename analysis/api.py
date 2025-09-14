@@ -63,7 +63,7 @@ def analyze_api(request):
 				results = mecab_analyze(text)
 				items = []
 				for (_, b, pos, _) in results:
-					if b:
+					if b and is_interactive(pos):
 						items.append((b, pos or ''))
 				if items:
 					increment_word_encounters({ 'user': user, 'items': items })
@@ -150,7 +150,7 @@ def analyze_sentence_api(request):
 				if request.user and request.user.is_authenticated:
 					items = []
 					for (surface, base, pos, _) in results:
-						if base:
+						if base and is_interactive(pos):
 							items.append((base, pos or ''))
 					if items:
 						increment_word_encounters({ 'user': request.user, 'items': items })

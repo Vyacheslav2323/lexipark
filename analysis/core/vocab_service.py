@@ -50,6 +50,7 @@ def batch_update_recalls(payload):
 	user = payload['user']
 	interactions = payload['interactions']
 	updated = 0
+	from analysis.core.interactive_rules import interactive as is_interactive
 	for word, had_lookup in interactions:
 		v = Vocabulary.objects.filter(user=user, korean_word=word).first()
 		if not v:
@@ -95,6 +96,8 @@ def increment_word_encounters(payload):
 	updated = 0
 	for token, pos in items:
 		if not token:
+			continue
+		if pos and (not is_interactive(pos)):
 			continue
 		v = Vocabulary.objects.filter(user=user, korean_word=token).first()
 		if not v:
