@@ -1,6 +1,0 @@
-{
-  "appId": "com.lexipark.app",
-  "appName": "Lexipark",
-  "webDir": "static",
-  "server": { "url": "https://lexipark.onrender.com", "cleartext": false }
-}

@@ -1,9 +1,0 @@
-{
-  "version": 1,
-  "privacy": {
-    "tracking": false,
-    "data": [
-      { "type": "photos", "collected": true, "linked": false, "tracking": false, "purposes": ["userInitiated"] }
-    ]
-  }
-}
