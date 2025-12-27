@@ -1,81 +1,105 @@
-// src/hooks/useChat.js
 import { useEffect, useRef, useState, useCallback } from "react";
 import { apiGet, apiPost } from "../services/api";
 
 export function useChat() {
   const [chatId, setChatId] = useState(null);
   const [messages, setMessages] = useState([]);
-
-  // hydrate-per-chatId (NOT boolean)
   const hydratedChatIdRef = useRef(null);
 
+  // restore chat id
   useEffect(() => {
     const stored = localStorage.getItem("chat_id");
     if (stored) setChatId(stored);
   }, []);
 
+  // fetch latest chat if none
   useEffect(() => {
     if (chatId) return;
-
     (async () => {
-      try {
-        const raw = await apiGet("/chat");
-        const chats = Array.isArray(raw) ? raw : (raw?.chats ?? []);
-        if (chats.length) {
-          setChatId(chats[0].id ?? chats[0].chat_id);
-        }
-      } catch (e) {
-        console.error("apiGet /chat failed:", e);
-      }
+      const chats = await apiGet("/chat");
+      if (chats?.length) setChatId(chats[0].id);
     })();
   }, [chatId]);
 
+  // hydrate messages
   useEffect(() => {
     if (!chatId) return;
     if (hydratedChatIdRef.current === chatId) return;
 
     (async () => {
-      try {
-        const raw = await apiGet(`/chat/${chatId}`);
-        const arr = Array.isArray(raw) ? raw : (raw?.messages ?? raw?.data ?? []);
-        setMessages(arr.map(m => ({
-          id: m.id ?? m.message_id ?? crypto.randomUUID(),
+      const data = await apiGet(`/chat/${chatId}`);
+      setMessages(
+        data.map(m => ({
+          id: m.id,
           role: m.role,
-          text: m.text ?? m.content ?? ""
-        })));
-        hydratedChatIdRef.current = chatId; // set only after success
-      } catch (e) {
-        console.error(`apiGet /chat/${chatId} failed:`, e);
-        hydratedChatIdRef.current = null; // allow retry
-      }
+          text: m.text
+        }))
+      );
+      hydratedChatIdRef.current = chatId;
     })();
   }, [chatId]);
 
   const ensureChat = useCallback(async () => {
     if (chatId) return chatId;
     const data = await apiPost("/chat/create", {});
-    const id = data.chat_id ?? data.id ?? data?.chat?.id;
-    setChatId(id);
-    localStorage.setItem("chat_id", id);
-    return id;
+    setChatId(data.chat_id);
+    localStorage.setItem("chat_id", data.chat_id);
+    return data.chat_id;
   }, [chatId]);
 
-  const saveMessage = useCallback(async (cid, role, text) => {
-    if (!cid) return;
-    try {
-      await apiPost("/chat/message", { chat_id: cid, role, text });
-    } catch (e) {
-      console.error("apiPost /chat/message failed:", e);
-    }
+  const addUserMessage = useCallback(async (text) => {
+    const id = crypto.randomUUID();
+    setMessages(m => [...m, { id, role: "user", text }]);
+
+    const cid = await ensureChat();
+    await apiPost("/chat/message", { chat_id: cid, role: "user", text });
+    return cid;
+  }, [ensureChat]);
+
+  const addAssistantPlaceholder = useCallback(() => {
+    const id = crypto.randomUUID();
+    setMessages(m => [...m, { id, role: "assistant", text: "", typing: true }]);
+    return id;
   }, []);
 
-  const addMessage = useCallback((msg) => {
-    setMessages(m => [...m, msg]);
+  const updateAssistantStreaming = useCallback((id, delta) => {
+    setMessages(m =>
+      m.map(x =>
+        x.id === id
+          ? { ...x, text: (x.text ?? "") + delta }
+          : x
+      )
+    );
   }, []);
+  
+  const finalizeAssistantMessage = useCallback(async (id, text, cidOverride) => {
+    setMessages(m =>
+      m.map(x => x.id === id ? { ...x, text, typing: false } : x)
+    );
+  
+    const cid = cidOverride ?? chatId ?? await ensureChat(); // ✅ robust
+    await apiPost("/chat/message", { chat_id: cid, role: "assistant", text });
+  }, [chatId, ensureChat]);
+  
+  const translateAndAppend = useCallback(async (text) => {
+    const cid = await addUserMessage(text);          // saves user msg
+    const botId = addAssistantPlaceholder();         // typing bubble
+  
+    const data = await apiPost("/llm/translate", { text });
+    const out = data.translation ?? data.output ?? "";
+  
+    await finalizeAssistantMessage(botId, out, cid); // update + persist assistant
+    return out;
+  }, [addUserMessage, addAssistantPlaceholder, finalizeAssistantMessage]);
 
-  const updateMessage = useCallback((id, patch) => {
-    setMessages(m => m.map(x => (x.id === id ? { ...x, ...patch } : x)));
-  }, []);
-
-  return { chatId, setChatId, messages, setMessages, ensureChat, saveMessage, addMessage, updateMessage };
+  return {
+    chatId,
+    messages,
+    addUserMessage,
+    addAssistantPlaceholder,
+    updateAssistantStreaming,
+    finalizeAssistantMessage,
+    translateAndAppend,
+  };
+  
 }

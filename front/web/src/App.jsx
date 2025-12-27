@@ -7,7 +7,7 @@ import Memorize from "./pages/Memorize";
 import Mypage from "./pages/Mypage";
 import Translator from "./pages/Translator";
 import Login from "./pages/Login";
-
+import Landing from "./pages/Landing";
 import RequireAuth from "./components/main/AuthGate";
 import { isLoggedIn, logout } from "./services/auth";
 
@@ -48,10 +48,10 @@ export default function App() {
       </nav>
 
       <Routes>
+        <Route path="/" element={<Landing />} />
         <Route path="/login" element={<Login />} />
 
         <Route element={<RequireAuth />}>
-          <Route path="/" element={<Translator />} />
           <Route path="/translator" element={<Translator />} />
           <Route path="/memorize" element={<Memorize />} />
           <Route path="/mypage" element={<Mypage />} />

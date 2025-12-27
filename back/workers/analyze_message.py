@@ -11,8 +11,9 @@ def analyze_message(message_id: UUID):
     if not msg: 
         return 
     chat = db.query(Chat).get(msg.chat_id) 
-    vocab_results = get_base_form(msg.text) 
-    persist_vocab_results( db = db, user_id = chat.user_id, vocab_results = vocab_results, message_id = message_id ) 
+    if msg.text and not msg.text.startswith("PATTERN: "):
+        vocab_results = get_base_form(msg.text) 
+        persist_vocab_results( db = db, user_id = chat.user_id, vocab_results = vocab_results, message_id = message_id ) 
     persist_grammar_results( db = db, user_id = chat.user_id, text = msg.text, message_id = message_id ) 
     db.commit() 
 

@@ -56,11 +56,12 @@ def get_grammar_table(current_user: User = Depends(get_current_user), db: Sessio
             User_Grammar.count,
             User_Grammar.recall
         )
-        .join(User_Grammar, User_Grammar.user_id == current_user.id)
+        .join(User_Grammar, User_Grammar.grammar_id == Grammar.id)
         .filter(User_Grammar.user_id == current_user.id)
         .order_by(User_Grammar.count.desc())
         .all()
     )
+
     return [
         {
             "Grammar": row.title,

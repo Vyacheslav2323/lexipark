@@ -1,17 +1,14 @@
 // src/hooks/useExplainSelection.js
 import { useCallback, useState } from "react";
-import { apiPost, apiGet } from "../services/api";
+import { apiPost } from "../services/api";
 
-export function useExplainSelection({ updateMessage, chatId, saveMessage }) {
-    const [selection, setSelection] = useState(null);
-    const handleSelection = useCallback(async (sentence) => {
+export function useExplainSelection({ addAssistantPlaceholder, finalizeAssistantMessage }) {
+  const [selection, setSelection] = useState(null);
+
+  const handleSelection = useCallback((sentence) => {
     const sel = window.getSelection();
     const text = sel?.toString()?.trim();
-
-    if (!text) {
-      setSelection(null);
-      return;
-    }
+    if (!text) return setSelection(null);
 
     const range = sel.getRangeAt(0);
     const rect = range.getBoundingClientRect();
@@ -30,17 +27,13 @@ export function useExplainSelection({ updateMessage, chatId, saveMessage }) {
     const { text, sentence } = selection;
     setSelection(null);
 
-    const placeholderId = crypto.randomUUID();
-    updateMessage(placeholderId, {}); // no-op if missing
+    const botId = addAssistantPlaceholder();
 
-    // add placeholder via caller (simpler: caller adds it)
     const data = await apiPost("/llm/lesson", { grammar_vocab: text, sentence });
-
     const out = data.explanation ?? data.lesson ?? data.output ?? "";
-    updateMessage(placeholderId, { text: out, typing: false });
 
-    if (chatId) saveMessage(chatId, "assistant", out);
-  }, [selection, updateMessage, chatId, saveMessage]);
+    await finalizeAssistantMessage(botId, out);
+  }, [selection, addAssistantPlaceholder, finalizeAssistantMessage]);
 
-  return { selection, setSelection, handleSelection, explain };
+  return { selection, handleSelection, explain };
 }
