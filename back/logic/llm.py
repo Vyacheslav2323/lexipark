@@ -1,7 +1,8 @@
-import openai
+from openai import OpenAI
 
-def translate(text: str) -> str:
-    client = OpenAI()
+client = OpenAI()
+
+def translate(text: str) -> dict:
     translation = client.responses.create(
         model="gpt-4o",
         input=[
@@ -10,10 +11,8 @@ def translate(text: str) -> str:
                 "content": """You are a professional translator that translates English to Korean. 
                 General rules:
                 - Preserve original meaning exactly.
-                - Do not add emotion, emphasis, or information.
                 - Preserve emotional intensity, including profanity.
                 - Choose natural Korean used by native speakers.
-                - Prefer commonly used modern expressions.
                 - Respect context when choosing speech level.
                 - Favor clarity over literal translation.
                 - Avoid unnatural textbook phrasing."""
@@ -24,20 +23,26 @@ def translate(text: str) -> str:
             }
         ],
     )
-    return response.choices[0].message.content
+    return {"translation": translation.output_text}
 
-def lesson(grammar_vocab: str, sentence: str) -> str:
-    client = OpenAI()
+def lesson(grammar_vocab: str, sentence: str) -> dict:
     lesson = client.responses.create(
         model="gpt-4o",
+        temperature=0.0,
         input=[
             {
                 "role": "developer",
                 "content": """You are a professional language tutor that explains Korean grammar and vocabulary in English. 
-                General rules:
-                - Explain the given grammar or vocabulary in English, providing equivalent English grammar or vocabulary.
-                - Give example usage of the grammar or vocabulary in English.
-                - Explain the nuances and the edge cases of the grammar or vocabulary in English."""
+                Base the explanation on the given sentence but generalize the grammar or vocabulary to a single pattern. 
+                Include the following sections:
+                - pattern: all required POS + inflections (verb+ㄹ/을게요)
+                - function: communicative purpose of the grammar
+                - meaning: concise English meaning
+                - boundary: when this does NOT apply
+
+                Use exact Uppercase field names.
+                No bullets, hyphens, or markdown.
+                """
             },
             {
                 "role": "user",
@@ -45,4 +50,4 @@ def lesson(grammar_vocab: str, sentence: str) -> str:
             }
         ],
     )
-    return lesson.choices[0].message.content
+    return {"lesson": lesson.output_text}
